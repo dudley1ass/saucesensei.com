@@ -1,6 +1,6 @@
-import type { ScienceArticle } from './types';
+import type { LibraryArticle } from './types';
 
-export const SCIENCE_ARTICLES_A: ScienceArticle[] = [
+export const SCIENCE_ARTICLES_A: LibraryArticle[] = [
   {
     slug: 'temperature-silent-killer-sauces',
     title: 'Temperature: the silent killer of sauces',

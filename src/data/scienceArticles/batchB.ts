@@ -1,6 +1,6 @@
-import type { ScienceArticle } from './types';
+import type { LibraryArticle } from './types';
 
-export const SCIENCE_ARTICLES_B: ScienceArticle[] = [
+export const SCIENCE_ARTICLES_B: LibraryArticle[] = [
   {
     slug: 'emulsion-vs-non-emulsion-sauces',
     title: 'Emulsion vs non-emulsion: two worlds on one stove',

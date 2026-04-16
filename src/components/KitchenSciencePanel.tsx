@@ -80,7 +80,7 @@ export function KitchenSciencePanel({ onOpenLibrary }: { onOpenLibrary: () => vo
           onClick={onOpenLibrary}
           className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg border border-violet-400 text-violet-950 hover:bg-violet-100"
         >
-          Open science library
+          Open article library
         </button>
       </div>
       <ul className="space-y-3">

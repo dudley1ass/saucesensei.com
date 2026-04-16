@@ -1,4 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { HelmetProvider } from 'react-helmet-async';
+import {
+  BrowserRouter,
+  Link,
+  Navigate,
+  Route,
+  Routes,
+  useNavigate,
+  useParams,
+} from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRight,
@@ -28,7 +38,12 @@ import { SauceBalanceWheelVisual } from './components/SauceBalanceWheelVisual';
 import { SauceStructurePanel } from './components/SauceStructurePanel';
 import { ArticleView } from './components/ArticleView';
 import { KitchenSciencePanel } from './components/KitchenSciencePanel';
-import { SCIENCE_ARTICLES, getScienceArticle } from './data/scienceArticles';
+import { PageHelmet } from './components/PageHelmet';
+import { RouteAnalytics } from './components/RouteAnalytics';
+import { LIBRARY_ARTICLES, getLibraryArticle } from './data/scienceArticles';
+import { initGoogleAnalytics } from './analytics';
+
+initGoogleAnalytics();
 
 const PRESET_INGREDIENT_CATALOG = getPresetIngredientCatalog();
 
@@ -307,6 +322,7 @@ function SauceDetail({
   onBack,
   onPrint,
   onOpenScienceLibrary,
+  recipeArticlePath,
 }: {
   sauce: Sauce;
   /** Same variant-group builds; when more than one, header shows recipe tabs. */
@@ -315,6 +331,8 @@ function SauceDetail({
   onBack: () => void;
   onPrint: () => void;
   onOpenScienceLibrary: () => void;
+  /** In-app long-form guide (`/article/:slug`) when `senseiFoodSlug` is set. */
+  recipeArticlePath?: string;
 }) {
   const fam = SAUCE_FAMILIES[sauce.family];
   const [mode, setMode] = useState<MeasurementMode>('metric');
@@ -534,13 +552,23 @@ function SauceDetail({
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={onPrint}
-              className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-all border border-white/25"
-            >
-              <Printer className="w-3.5 h-3.5" /> Print
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              {recipeArticlePath ? (
+                <Link
+                  to={recipeArticlePath}
+                  className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-all border border-white/25"
+                >
+                  <BookOpen className="w-3.5 h-3.5" /> Article
+                </Link>
+              ) : null}
+              <button
+                type="button"
+                onClick={onPrint}
+                className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-all border border-white/25"
+              >
+                <Printer className="w-3.5 h-3.5" /> Print
+              </button>
+            </div>
           </div>
           {hubRecipes && hubRecipes.length > 1 && onSelectHubRecipe ? (
             <div className="mt-3 pt-3 border-t border-white/15">
@@ -842,23 +870,10 @@ function SauceDetail({
   );
 }
 
-export default function App() {
-  const [activeId, setActiveId] = useState<string | null>(null);
+function HomePage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [family, setFamily] = useState<Sauce['family'] | 'all'>('all');
-  const [scienceLibraryOpen, setScienceLibraryOpen] = useState(false);
-  const [scienceArticleSlug, setScienceArticleSlug] = useState<string | null>(null);
-
-  const active = useMemo(
-    () => sauces.find((s) => s.id === activeId) ?? null,
-    [activeId],
-  );
-
-  useLayoutEffect(() => {
-    window.scrollTo(0, 0);
-  }, [activeId, scienceArticleSlug, scienceLibraryOpen]);
-
-  const scienceArticle = scienceArticleSlug ? getScienceArticle(scienceArticleSlug) : undefined;
 
   const allHubs = useMemo(() => buildSauceHubs(sauces), []);
 
@@ -872,41 +887,13 @@ export default function App() {
       .filter((hub) => hub.recipes.length > 0);
   }, [allHubs, search, family]);
 
-  const hubRecipeListForDetail = useMemo(() => {
-    if (!active) return [];
-    return recipesInSameHub(active.id);
-  }, [active]);
-
-  if (active) {
-    return (
-      <SauceDetail
-        sauce={active}
-        hubRecipes={hubRecipeListForDetail.length > 1 ? hubRecipeListForDetail : undefined}
-        onSelectHubRecipe={hubRecipeListForDetail.length > 1 ? (id) => setActiveId(id) : undefined}
-        onBack={() => setActiveId(null)}
-        onPrint={() => window.print()}
-        onOpenScienceLibrary={() => {
-          setActiveId(null);
-          setScienceLibraryOpen(true);
-        }}
-      />
-    );
-  }
-
-  if (scienceArticle && scienceArticleSlug) {
-    return (
-      <ArticleView
-        article={scienceArticle}
-        onBack={() => {
-          setScienceArticleSlug(null);
-          setScienceLibraryOpen(true);
-        }}
-      />
-    );
-  }
-
   return (
     <div className="min-h-screen print:hidden app-print-root" style={{ background: PAGE_BG }}>
+      <PageHelmet
+        title="Sauce Sensei — Interactive sauce recipes & balance"
+        description="The ten sauces you actually need — pan sauce, gravy, cream, tomato, and more. Live flavor wheel, guardrails, and long-form articles — each with its own URL."
+        path="/"
+      />
       <header className="text-white shadow-lg" style={{ background: HEADER_GRADIENT }}>
         <div className="container mx-auto px-4 py-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:justify-between">
@@ -922,7 +909,8 @@ export default function App() {
                   Sauce Sensei
                 </h1>
                 <p className="text-amber-100/95 text-sm max-w-xl">
-                  Everything sauce — interactive builds, balance guardrails, and SenseiFood science articles.
+                  Everything sauce — interactive builds, balance guardrails, science articles, and per-recipe guides (each
+                  with its own link for sharing and indexing).
                 </p>
               </div>
             </div>
@@ -931,17 +919,13 @@ export default function App() {
                 <ChefHat className="w-5 h-5 shrink-0" />
                 <span className="leading-snug">Cook meat, build flavor, finish strong.</span>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setScienceLibraryOpen(true);
-                  setScienceArticleSlug(null);
-                }}
+              <Link
+                to="/articles"
                 className="inline-flex items-center gap-1.5 self-start sm:self-center text-xs font-bold px-3 py-2 rounded-lg bg-white/15 hover:bg-white/25 border border-white/30"
               >
                 <BookOpen className="w-4 h-4" />
-                Science library
-              </button>
+                Article library
+              </Link>
             </div>
           </div>
         </div>
@@ -964,43 +948,13 @@ export default function App() {
           <p className="mt-3 text-center text-sm text-gray-600 max-w-lg leading-relaxed">
             How the balance model is laid out. Open any sauce card for the live wheel that tracks your recipe.
           </p>
+          <p className="mt-2 text-center text-sm text-violet-900/90">
+            <Link to="/articles" className="font-semibold text-violet-800 underline decoration-violet-300">
+              Browse all articles
+            </Link>{' '}
+            — sauce science long-reads and recipe guides with SenseiFood companions.
+          </p>
         </div>
-
-        {scienceLibraryOpen && (
-          <section className="mb-10 rounded-2xl border border-violet-200 bg-white/95 p-4 sm:p-6 shadow-sm">
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div>
-                <h2 className="text-lg font-bold text-violet-950" style={{ fontFamily: 'Georgia, serif' }}>
-                  Sauce science library
-                </h2>
-                <p className="text-sm text-violet-900/90 mt-1 max-w-2xl">
-                  Long-form articles (600+ words each) with diagrams — tied to SenseiFood URLs for sharing and CMS.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setScienceLibraryOpen(false)}
-                className="text-xs font-bold text-violet-800 hover:text-violet-950 px-2 py-1 rounded-lg border border-violet-200"
-              >
-                Close
-              </button>
-            </div>
-            <ul className="grid sm:grid-cols-2 gap-3">
-              {SCIENCE_ARTICLES.map((a) => (
-                <li key={a.slug}>
-                  <button
-                    type="button"
-                    onClick={() => setScienceArticleSlug(a.slug)}
-                    className="w-full text-left rounded-xl border border-violet-100 bg-violet-50/60 hover:bg-violet-100/80 px-4 py-3 transition-colors"
-                  >
-                    <p className="text-sm font-bold text-violet-950">{a.title}</p>
-                    <p className="text-xs text-violet-900/85 mt-1 leading-snug">{a.subtitle}</p>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
 
         <div className="text-center mb-8 max-w-2xl mx-auto">
           <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Georgia, serif' }}>
@@ -1078,7 +1032,7 @@ export default function App() {
               <SauceHubCard
                 key={hub.hubKey}
                 hub={hub}
-                onOpen={() => setActiveId(hub.recipes[0].id)}
+                onOpen={() => navigate(`/sauce/${hub.recipes[0].id}`)}
               />
             ))}
           </div>
@@ -1089,5 +1043,153 @@ export default function App() {
         Sauce Sensei — a practical sauce playbook. Built in the spirit of CakeSensei.
       </footer>
     </div>
+  );
+}
+
+function ArticlesLibraryPage() {
+  const navigate = useNavigate();
+  const scienceArticles = useMemo(
+    () => LIBRARY_ARTICLES.filter((a) => (a.kind ?? 'science') === 'science'),
+    [],
+  );
+  const recipeGuides = useMemo(() => LIBRARY_ARTICLES.filter((a) => a.kind === 'recipe'), []);
+
+  return (
+    <div className="min-h-screen print:hidden app-print-root" style={{ background: PAGE_BG }}>
+      <PageHelmet
+        title="Articles · Sauce Sensei"
+        description="Sauce science long-reads and per-recipe guides — each with its own URL for sharing, indexing, and GA4."
+        path="/articles"
+      />
+      <header className="text-white shadow-lg" style={{ background: HEADER_GRADIENT }}>
+        <div className="container mx-auto px-4 py-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-white/90 hover:text-white"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Home
+            </Link>
+            <span className="text-white/40">|</span>
+            <h1 className="text-lg sm:text-xl font-bold" style={{ fontFamily: 'Georgia, serif' }}>
+              Article library
+            </h1>
+          </div>
+          <p className="text-xs text-amber-100/95 max-w-md">
+            Science deep-dives and recipe guides — same layout, SenseiFood funnel on every page.
+          </p>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-8 max-w-6xl space-y-10">
+        <section className="rounded-2xl border border-violet-200 bg-white/95 p-4 sm:p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-violet-950 mb-1" style={{ fontFamily: 'Georgia, serif' }}>
+            Sauce science
+          </h2>
+          <p className="text-sm text-violet-900/90 mb-4 max-w-2xl">
+            Long-form articles (600+ words each) on temperature, emulsions, reduction, and more — paired with SenseiFood
+            URLs.
+          </p>
+          <ul className="grid sm:grid-cols-2 gap-3">
+            {scienceArticles.map((a) => (
+              <li key={a.slug}>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/article/${a.slug}`)}
+                  className="w-full text-left rounded-xl border border-violet-100 bg-violet-50/60 hover:bg-violet-100/80 px-4 py-3 transition-colors"
+                >
+                  <p className="text-sm font-bold text-violet-950">{a.title}</p>
+                  <p className="text-xs text-violet-900/85 mt-1 leading-snug">{a.subtitle}</p>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="rounded-2xl border border-rose-200 bg-white/95 p-4 sm:p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-rose-950 mb-1" style={{ fontFamily: 'Georgia, serif' }}>
+            Recipe guides
+          </h2>
+          <p className="text-sm text-rose-900/90 mb-4 max-w-2xl">
+            One guide per SenseiFood-linked variant — same article layout, funnel to the interactive builder and to
+            SenseiFood for indexing.
+          </p>
+          <ul className="grid sm:grid-cols-2 gap-3">
+            {recipeGuides.map((a) => (
+              <li key={a.slug}>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/article/${a.slug}`)}
+                  className="w-full text-left rounded-xl border border-rose-100 bg-rose-50/60 hover:bg-rose-100/80 px-4 py-3 transition-colors"
+                >
+                  <p className="text-sm font-bold text-rose-950">{a.title}</p>
+                  <p className="text-xs text-rose-900/85 mt-1 leading-snug">{a.subtitle}</p>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </main>
+
+      <footer className="text-center text-xs text-gray-500 pb-8 px-4">
+        Sauce Sensei — a practical sauce playbook. Built in the spirit of CakeSensei.
+      </footer>
+    </div>
+  );
+}
+
+function ArticleRoute() {
+  const { slug } = useParams();
+  const navigate = useNavigate();
+  const article = slug ? getLibraryArticle(slug) : undefined;
+  if (!article) return <Navigate to="/articles" replace />;
+  return <ArticleView article={article} onBack={() => navigate('/articles')} />;
+}
+
+function SauceDetailRoute() {
+  const { sauceId } = useParams();
+  const navigate = useNavigate();
+  const active = useMemo(
+    () => (sauceId ? (sauces.find((s) => s.id === sauceId) ?? null) : null),
+    [sauceId],
+  );
+  if (!active) return <Navigate to="/" replace />;
+  const hubRecipeListForDetail = useMemo(() => recipesInSameHub(active.id), [active.id]);
+
+  return (
+    <>
+      <PageHelmet
+        title={`${active.name} · Sauce Sensei`}
+        description={active.subtitle}
+        path={`/sauce/${active.id}`}
+      />
+      <SauceDetail
+        sauce={active}
+        hubRecipes={hubRecipeListForDetail.length > 1 ? hubRecipeListForDetail : undefined}
+        onSelectHubRecipe={hubRecipeListForDetail.length > 1 ? (id) => navigate(`/sauce/${id}`) : undefined}
+        onBack={() => navigate('/')}
+        onPrint={() => window.print()}
+        onOpenScienceLibrary={() => navigate('/articles')}
+        recipeArticlePath={active.senseiFoodSlug ? `/article/${active.senseiFoodSlug}` : undefined}
+      />
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <HelmetProvider>
+      <BrowserRouter>
+        <RouteAnalytics />
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/articles" element={<ArticlesLibraryPage />} />
+          <Route path="/article/:slug" element={<ArticleRoute />} />
+          <Route path="/sauce/:sauceId" element={<SauceDetailRoute />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </HelmetProvider>
   );
 }
