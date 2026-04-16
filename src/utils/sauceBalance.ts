@@ -1041,8 +1041,23 @@ type WheelGain = { kx: number; ky: number; xBias: number; yBias: number };
  * Targets are diagram-grid units (same space as `wheelTarget` in `sauces.ts`).
  */
 function wheelGainFor(sauceId: string, family: Sauce['family']): WheelGain {
+  /**
+   * Pan sauces: perceived fat dominates the ratio axes for typical wine/stock + butter builds,
+   * so the same kx/ky as “loud” families parks the dot far right. Gains are **per variant** so
+   * default recipes sit near `wheelTarget` in `sauces.ts` (style band center is authored, not derived).
+   */
+  if (sauceId === 'pan-sauce') {
+    return { kx: 0.83, ky: 3.55, xBias: 0, yBias: 0.03 };
+  }
+  if (sauceId === 'pan-sauce-lemon') {
+    return { kx: 0.88, ky: 3.2, xBias: 0.16, yBias: 0.038 };
+  }
+  if (sauceId === 'pan-sauce-mustard') {
+    return { kx: 1.45, ky: 10, xBias: 0.03, yBias: 0.195 };
+  }
+  /** Future `PAN_IDS` members without their own row use the classic pan-sauce curve. */
   if (PAN_IDS.has(sauceId)) {
-    return { kx: 4.35, ky: 4.55, xBias: 0, yBias: 0 };
+    return { kx: 0.83, ky: 3.55, xBias: 0, yBias: 0.03 };
   }
   if (sauceId === 'simple-gravy') {
     return { kx: 6.55, ky: 3.95, xBias: 1.48, yBias: 0.06 };
