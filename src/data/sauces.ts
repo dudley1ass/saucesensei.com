@@ -89,7 +89,7 @@ export const BASE_SAUCES: Sauce[] = [
       {
         slotId: 'aromatic',
         label: 'Shallot (optional)',
-        amountGrams: 25,
+        amountGrams: 20,
         options: [
           { id: 'shallot', name: 'Shallot (minced)', gramsPerCup: 160 },
           { id: 'garlic', name: 'Garlic (minced)', gramsPerCup: 136 },
@@ -97,8 +97,8 @@ export const BASE_SAUCES: Sauce[] = [
       },
       {
         slotId: 'wine',
-        label: 'Wine (½ cup deglaze)',
-        amountGrams: 120,
+        label: 'Wine (scant ½ cup deglaze)',
+        amountGrams: 110,
         options: [
           { id: 'dry-white', name: 'Dry white wine', gramsPerCup: 240 },
           { id: 'dry-red', name: 'Dry red wine', gramsPerCup: 240 },
@@ -106,8 +106,8 @@ export const BASE_SAUCES: Sauce[] = [
       },
       {
         slotId: 'stock',
-        label: 'Stock (1 cup)',
-        amountGrams: 240,
+        label: 'Stock (scant 1 cup — reduce before butter)',
+        amountGrams: 210,
         options: [
           { id: 'chicken-stock', name: 'Chicken stock', gramsPerCup: 240 },
           { id: 'beef-stock', name: 'Beef stock', gramsPerCup: 240 },
@@ -116,8 +116,8 @@ export const BASE_SAUCES: Sauce[] = [
       },
       {
         slotId: 'finish',
-        label: 'Butter finish (2–3 tbsp)',
-        amountGrams: 36,
+        label: 'Cold butter finish (~3½ tbsp)',
+        amountGrams: 48,
         options: [
           { id: 'cold-butter', name: 'Cold butter', gramsPerCup: 227 },
           { id: 'cream', name: 'Heavy cream (alternate finish)', gramsPerCup: 240 },
@@ -136,7 +136,7 @@ export const BASE_SAUCES: Sauce[] = [
     useFor: ['pot pie', 'chicken', 'mashed potatoes'],
     steps: [
       'Melt butter, whisk in flour, and cook the roux 2–3 minutes until toasty.',
-      'Slowly whisk in warm stock until smooth.',
+      'Slowly whisk in warm stock until smooth (start with about 1 cup; add more stock to thin if needed).',
       'Simmer until thick; season with salt and pepper.',
     ],
     tip: 'Equal parts butter and flour by volume is the classic roux move here.',
@@ -145,7 +145,7 @@ export const BASE_SAUCES: Sauce[] = [
     recipe: [
       { slotId: 'butter', label: 'Butter (2 tbsp)', amountGrams: 28, options: [{ id: 'butter', name: 'Butter', gramsPerCup: 227 }, { id: 'drippings', name: 'Pan drippings', gramsPerCup: 240 }] },
       { slotId: 'flour', label: 'Flour (2 tbsp)', amountGrams: 16, options: [{ id: 'ap-flour', name: 'All-purpose flour', gramsPerCup: 120 }, { id: 'gf-flour', name: 'Gluten-free blend', gramsPerCup: 128 }] },
-      { slotId: 'stock', label: 'Stock (2 cups)', amountGrams: 480, options: [{ id: 'chicken-stock', name: 'Chicken stock', gramsPerCup: 240 }, { id: 'veg-stock', name: 'Vegetable stock', gramsPerCup: 240 }] },
+      { slotId: 'stock', label: 'Stock (1 cup — simmer; add more to thin)', amountGrams: 240, options: [{ id: 'chicken-stock', name: 'Chicken stock', gramsPerCup: 240 }, { id: 'veg-stock', name: 'Vegetable stock', gramsPerCup: 240 }] },
       {
         slotId: 'salt',
         label: 'Salt (½–1 tsp, to taste)',

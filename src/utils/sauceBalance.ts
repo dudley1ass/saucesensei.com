@@ -477,44 +477,62 @@ export function evaluateSauceBalance(
   const push = (severity: BalanceSeverity, text: string) =>
     messages.push({ severity, text });
 
-  if (PAN_IDS.has(sauceId)) {
-    const liquid = buckets.liquid ?? 0;
-    const fat = buckets.fat ?? 0;
-    const acid = buckets.acid ?? 0;
-    const solid = buckets.solid ?? 0;
-    const t = liquid + fat + acid + solid;
-    const L = pctOf(liquid, t);
-    const F = pctOf(fat, t);
-    const A = pctOf(acid, t);
-    const S = pctOf(solid, t);
-    pct.liquidPan = L;
-    pct.fatPan = F;
-    pct.acidPan = A;
-    pct.solidPan = S;
+  const eng = computeEngineeringStructure(sauceId, lines, opts);
+  pct.structLiquid = Math.round(eng.liquidPct * 10) / 10;
+  pct.structFat = Math.round(eng.fatPct * 10) / 10;
+  pct.structAcid = Math.round(eng.acidPct * 10) / 10;
+  pct.structSweet = Math.round(eng.sweetPct * 10) / 10;
+  pct.structBody = Math.round(eng.bodyPct * 10) / 10;
+  pct.structFatRatio = Math.round(eng.fatRatio * 1000) / 10;
 
-    push('info', 'Pan sauce (emulsified reduction): think “mostly liquid, finished with butter.”');
-    if (F > 35) {
+  if (PAN_IDS.has(sauceId)) {
+    const fr = eng.fatRatio * 100;
+    push(
+      'info',
+      'Pan sauce (emulsified reduction): targets are ~60–70% liquid, ~20–30% fat, ~5–10% acid, ~0–3% sweet (after typical deglaze/stock reduction, before mounting butter).',
+    );
+    if (fr < 15) {
       push(
         'error',
-        `Fat is about ${F.toFixed(0)}% of this build (target ~25–35%). Above ~35% the emulsion tends to break and the sauce reads greasy.`,
+        `Fat ÷ (fat + liquid + body) is ~${fr.toFixed(0)}% — need ≥15% for a stable emulsified finish (below ~10% reads thin or broken). Add cold butter, reduce liquid further, or mount in two stages.`,
       );
-    }
-    if (A > 12) {
+    } else if (fr > 34) {
       push(
         'warn',
-        `Acid is about ${A.toFixed(0)}% (guide ~5–10%). Above ~12% it can taste sharp and less “rounded.”`,
+        `Fat ÷ (fat + liquid + body) is ~${fr.toFixed(0)}% — above ~30% the finish can read greasy or split more easily.`,
       );
     }
-    if (L < 55) {
+    if (eng.liquidPct < 56 || eng.liquidPct > 74) {
       push(
-        'error',
-        `Liquid is only ~${L.toFixed(0)}% (guide ~60–70%). Below ~55% it is hard to emulsify cleanly with the butter finish.`,
+        eng.liquidPct < 56 ? 'error' : 'warn',
+        `Engineering liquid is ~${eng.liquidPct.toFixed(0)}% (guide ~60–70%). ${
+          eng.liquidPct < 56
+            ? 'Too little free liquid makes mounting butter finicky.'
+            : 'Very liquid-forward — reduce more before the butter finish, or use less deglaze/stock.'
+        }`,
       );
     }
-    if (F <= 35 && A <= 12 && L >= 55) {
+    if (eng.fatPct < 17 || eng.fatPct > 34) {
+      push(
+        eng.fatPct < 17 ? 'warn' : 'warn',
+        `Fat is ~${eng.fatPct.toFixed(0)}% of modeled sauce mass (guide ~20–30%). ${
+          eng.fatPct < 17 ? 'Lean builds need more finish fat or a tighter reduction.' : 'High fat% — watch for greasy mouthfeel.'
+        }`,
+      );
+    }
+    if (eng.acidPct > 12) {
+      push(
+        'warn',
+        `Acid is ~${eng.acidPct.toFixed(0)}% (guide ~5–10%). Above ~12% it can taste sharp before fat rounds it.`,
+      );
+    }
+    if (eng.sweetPct > 4) {
+      push('info', `Sweet reads ~${eng.sweetPct.toFixed(0)}% (guide ~0–3% for classic savory pan sauce).`);
+    }
+    if (fr >= 15 && eng.liquidPct >= 56 && eng.liquidPct <= 74 && eng.fatPct >= 17 && eng.fatPct <= 34 && eng.acidPct <= 12) {
       push(
         'ok',
-        `Balance looks workable: ~${L.toFixed(0)}% liquid / ~${F.toFixed(0)}% fat / ~${A.toFixed(0)}% acid / ~${S.toFixed(0)}% solids.`,
+        `Structure looks workable: liquid ~${eng.liquidPct.toFixed(0)}%, fat ~${eng.fatPct.toFixed(0)}%, fat/(fat+liq+body) ~${fr.toFixed(0)}% (≥15%).`,
       );
     }
   }
@@ -542,6 +560,44 @@ export function evaluateSauceBalance(
     }
     if (milkPct < 68) {
       push('warn', `Milk is ~${milkPct.toFixed(0)}% of the build (guide ~70–80% liquid for white gravy).`);
+    }
+    push(
+      'info',
+      'White gravy engineering targets: milk ~70–80%, fat ~10–15%, starch ~5–8%, sweet from milk ~2–5%.',
+    );
+    if (eng.liquidPct < 68 || eng.liquidPct > 84) {
+      push(
+        'warn',
+        `Modeled liquid is ~${eng.liquidPct.toFixed(0)}% (guide ~70–80%). Adjust milk vs roux or simmer to thicken.`,
+      );
+    }
+    if (eng.fatPct < 8 || eng.fatPct > 17) {
+      push(
+        'warn',
+        `Modeled fat is ~${eng.fatPct.toFixed(0)}% (guide ~10–15%). Roux fat + dairy fat should land in that band.`,
+      );
+    }
+    if (eng.bodyPct < 4 || eng.bodyPct > 10) {
+      push(
+        'warn',
+        `Starch / body reads ~${eng.bodyPct.toFixed(0)}% (guide ~5–8%). Too little stays thin; too much goes pasty.`,
+      );
+    }
+    if (eng.sweetPct < 1.5 || eng.sweetPct > 7) {
+      push(
+        'info',
+        `Sweet (mostly lactose) reads ~${eng.sweetPct.toFixed(0)}% (guide ~2–5%).`,
+      );
+    }
+    if (
+      eng.liquidPct >= 68 &&
+      eng.liquidPct <= 84 &&
+      eng.fatPct >= 8 &&
+      eng.fatPct <= 17 &&
+      eng.bodyPct >= 4 &&
+      eng.bodyPct <= 10
+    ) {
+      push('ok', `Gravy structure looks on-target: liquid ~${eng.liquidPct.toFixed(0)}%, fat ~${eng.fatPct.toFixed(0)}%, body ~${eng.bodyPct.toFixed(0)}%.`);
     }
   }
 
@@ -582,30 +638,58 @@ export function evaluateSauceBalance(
         'Fat looks quite low relative to flour/stock — the sauce can read flat or dull without enough fat in the roux.',
       );
     }
+    push(
+      'info',
+      'Brown gravy engineering targets: liquid ~75–85%, roux fat ~8–12%, starch body ~5–8%, acid ~0–3%.',
+    );
+    if (eng.liquidPct < 73 || eng.liquidPct > 88) {
+      push(
+        'warn',
+        `Modeled liquid is ~${eng.liquidPct.toFixed(0)}% (guide ~75–85%). Simmer to concentrate or add stock to adjust.`,
+      );
+    }
+    if (eng.fatPct < 6.5 || eng.fatPct > 14) {
+      push(
+        'warn',
+        `Modeled fat is ~${eng.fatPct.toFixed(0)}% (guide ~8–12%). Roux butter/drippings carry most of this.`,
+      );
+    }
+    if (eng.bodyPct < 4 || eng.bodyPct > 10) {
+      push(
+        'warn',
+        `Starch / body reads ~${eng.bodyPct.toFixed(0)}% (guide ~5–8%).`,
+      );
+    }
+    if (eng.liquidPct >= 73 && eng.liquidPct <= 88 && eng.fatPct >= 6.5 && eng.fatPct <= 14 && eng.bodyPct >= 4 && eng.bodyPct <= 10) {
+      push('ok', `Gravy structure looks on-target: liquid ~${eng.liquidPct.toFixed(0)}%, fat ~${eng.fatPct.toFixed(0)}%, body ~${eng.bodyPct.toFixed(0)}%.`);
+    }
   }
 
   if (CREAM_IDS.has(sauceId)) {
-    const cream = buckets.cream ?? 0;
-    const extraFat = buckets.extraFat ?? 0;
-    const t = cream + extraFat + (buckets.cheese ?? 0) + (buckets.solid ?? 0);
-    const creamPct = pctOf(cream, t);
-    const fatPct = pctOf(extraFat, t);
-
     push(
       'info',
-      'Cream sauce: fat-stable system — gentle simmer, avoid blasting heat (high heat can break dairy).',
+      'Cream sauce: engineering targets ~65–75% dairy liquid, ~20–30% fat, ~0–5% acid, ~2–5% sweet — gentle heat matters as much as ratios.',
     );
-    if (creamPct < 55) {
+    if (eng.liquidPct < 58 || eng.liquidPct > 80) {
       push(
         'warn',
-        `Cream is only ~${creamPct.toFixed(0)}% of this build (guide ~70–80% for a “cream-forward” sauce). It can feel heavy or pasty without enough dairy phase.`,
+        `Modeled liquid phase is ~${eng.liquidPct.toFixed(0)}% (guide ~65–75%).`,
       );
     }
-    if (fatPct > 12) {
+    if (eng.fatPct < 16 || eng.fatPct > 34) {
       push(
         'warn',
-        `Extra butter/fat is ~${fatPct.toFixed(0)}% (guide ~5–10% beyond the cream). Too much extra fat can feel greasy once reduced.`,
+        `Modeled fat is ~${eng.fatPct.toFixed(0)}% (guide ~20–30% including butter and cream lipids).`,
       );
+    }
+    if (eng.acidPct > 6) {
+      push('info', `Acid reads ~${eng.acidPct.toFixed(0)}% (guide ~0–5% unless you add wine/lemon).`);
+    }
+    if (eng.sweetPct > 7) {
+      push('info', `Sweet reads ~${eng.sweetPct.toFixed(0)}% (guide ~2–5% from dairy / cheese).`);
+    }
+    if (eng.liquidPct >= 58 && eng.liquidPct <= 80 && eng.fatPct >= 16 && eng.fatPct <= 34) {
+      push('ok', `Cream sauce structure looks workable: liquid ~${eng.liquidPct.toFixed(0)}%, fat ~${eng.fatPct.toFixed(0)}%.`);
     }
   }
 
@@ -633,6 +717,25 @@ export function evaluateSauceBalance(
         'warn',
         `Tomato solids are ~${tomPct.toFixed(0)}% (guide ~70–80%). Lower tomato % can read more like “soup” than sauce unless you reduce hard.`,
       );
+    }
+    push(
+      'info',
+      'Tomato sauce engineering: tomato + acid phase ~65–75%, fat ~10–20%, sweet ~3–8% (fat + sweet buffer acid).',
+    );
+    if (eng.fatPct < 8 || eng.fatPct > 24) {
+      push(
+        'warn',
+        `Modeled fat is ~${eng.fatPct.toFixed(0)}% (guide ~10–20%).`,
+      );
+    }
+    if (eng.sweetPct < 2 || eng.sweetPct > 10) {
+      push(
+        'info',
+        `Sweet reads ~${eng.sweetPct.toFixed(0)}% (guide ~3–8% when you need to balance sharp tomato).`,
+      );
+    }
+    if (tomPct >= 60 && eng.fatPct >= 8 && eng.fatPct <= 24) {
+      push('ok', `Tomato build looks structurally reasonable: tomato-forward ~${tomPct.toFixed(0)}%, fat ~${eng.fatPct.toFixed(0)}%.`);
     }
   }
 
@@ -669,6 +772,13 @@ export function evaluateSauceBalance(
         'Mustard (emulsifier) is very low — the dressing will separate faster without enough emulsifier or aggressive whisking.',
       );
     }
+    push('info', 'Vinaigrette engineering: oil ~70–80% and acid ~20–30% of the oil+acid phase (classic ~3:1).');
+    if (eng.fatPct < 62 || eng.fatPct > 82) {
+      push('info', `Modeled fat (oil-forward) is ~${eng.fatPct.toFixed(0)}% of total mass — compare to your oil slider.`);
+    }
+    if (oilOfEmulsion >= 68 && acidOfEmulsion >= 18) {
+      push('ok', 'Oil : acid split looks close to a classic vinaigrette window.');
+    }
   }
 
   if (sauceId === 'mayo-aioli') {
@@ -697,6 +807,18 @@ export function evaluateSauceBalance(
         `Water phase looks tight (~${waterPct.toFixed(0)}%). Too little water phase can make emulsification finicky.`,
       );
     }
+    if (eng.fatPct < 72 || eng.fatPct > 88) {
+      push(
+        'warn',
+        `Oil / fat phase is ~${eng.fatPct.toFixed(0)}% of modeled mass (guide ~75–85% for mayo-style emulsions).`,
+      );
+    }
+    if (eng.acidPct > 6) {
+      push('warn', `Acid is ~${eng.acidPct.toFixed(0)}% (guide ~2–5% for stable mayo).`);
+    }
+    if (eng.fatPct >= 72 && eng.fatPct <= 88 && oilPct >= 70) {
+      push('ok', `Mayo / aioli structure looks workable: fat ~${eng.fatPct.toFixed(0)}%, oil-like phase ~${oilPct.toFixed(0)}%.`);
+    }
   }
 
   if (REDUCTION_IDS.has(sauceId)) {
@@ -715,10 +837,10 @@ export function evaluateSauceBalance(
       'info',
       'Reduction: this is a concentration curve — you are mostly evaporating water until viscosity does the work.',
     );
-    if (finishPctEff > 12) {
+    if (finishPctEff > 14) {
       push(
         'warn',
-        `Finish fat is ~${finishPctEff.toFixed(0)}% of the “after reduction” mix (optional finish often ~5–10%). Too much butter can feel greasy vs a clean glaze.`,
+        `Finish fat is ~${finishPctEff.toFixed(0)}% of the reduced mix (guide optional finish ~5–15%). Too much butter can feel greasy vs a clean glaze.`,
       );
     }
     if (rem < 35) {
@@ -732,6 +854,9 @@ export function evaluateSauceBalance(
         'warn',
         'Still very liquid-forward after your reduction slider — under-reduction stays thin and will not coat like a plating sauce.',
       );
+    }
+    if (rem >= 30 && rem <= 55 && finishPctEff <= 14 && pctOf(effectiveLiq, tEff) <= 0.82) {
+      push('ok', 'Reduction curve looks in a plating-friendly zone for many glazes.');
     }
   }
 
@@ -761,6 +886,19 @@ export function evaluateSauceBalance(
         'warn',
         `Solids are ~${solidPct.toFixed(0)}% (guide ~20–30% for many chimichurri/pesto builds). Very high solids can read pasty or “dry.”`,
       );
+    }
+    push(
+      'info',
+      'Herb sauce engineering: fat ~50–65%, acid ~5–15%, solids/herbs ~15–25%, sweet ~0–5%.',
+    );
+    if (eng.fatPct < 42 || eng.fatPct > 70) {
+      push('warn', `Modeled fat / oil is ~${eng.fatPct.toFixed(0)}% (guide ~50–65%).`);
+    }
+    if (eng.acidPct < 3.5 || eng.acidPct > 18) {
+      push('warn', `Modeled acid is ~${eng.acidPct.toFixed(0)}% (guide ~5–15%).`);
+    }
+    if (oilPct >= 48 && oilPct <= 68 && eng.fatPct >= 42 && eng.fatPct <= 70) {
+      push('ok', `Herb oil structure looks workable: oil fraction ~${oilPct.toFixed(0)}%, modeled fat ~${eng.fatPct.toFixed(0)}%.`);
     }
   }
 
@@ -807,6 +945,19 @@ export function evaluateSauceBalance(
         'Almost no acid in the build — expect a flatter “salty-sweet” profile. A splash of vinegar or citrus usually fixes it.',
       );
     }
+    push(
+      'info',
+      'Soy glaze engineering: diluent ~40–55%, soy (salt load) ~15–25%, sweet ~10–20%, fat ~5–10%, acid ~3–8%.',
+    );
+    if (eng.liquidPct < 35 || eng.liquidPct > 58) {
+      push('warn', `Modeled liquid phase is ~${eng.liquidPct.toFixed(0)}% (guide ~40–55%).`);
+    }
+    if (eng.fatPct < 3.5 || eng.fatPct > 12) {
+      push('info', `Modeled fat is ~${eng.fatPct.toFixed(0)}% (guide ~5–10%).`);
+    }
+    if (eng.acidPct < 2.5 || eng.acidPct > 10) {
+      push('info', `Modeled acid is ~${eng.acidPct.toFixed(0)}% (guide ~3–8%).`);
+    }
   }
 
   if (CHEESE_IDS.has(sauceId)) {
@@ -840,6 +991,22 @@ export function evaluateSauceBalance(
         'warn',
         'Acid (mustard) is on the high side — too much acid in a hot cheese system can curdle or grain. Keep acid low and add at the end.',
       );
+    }
+    push(
+      'info',
+      'Cheese sauce engineering: liquid ~50–65%, fat ~15–25%, cheese solids ~20–35%, acid ~0–3%.',
+    );
+    if (eng.liquidPct < 45 || eng.liquidPct > 70) {
+      push('warn', `Modeled liquid is ~${eng.liquidPct.toFixed(0)}% (guide ~50–65%).`);
+    }
+    if (eng.fatPct < 12 || eng.fatPct > 30) {
+      push('info', `Modeled fat is ~${eng.fatPct.toFixed(0)}% (guide ~15–25% including butter and cheese lipids).`);
+    }
+    if (eng.bodyPct < 15 || eng.bodyPct > 42) {
+      push('info', `Solids / body read ~${eng.bodyPct.toFixed(0)}% (cheese + starch often ~20–35% combined).`);
+    }
+    if (eng.liquidPct >= 45 && eng.liquidPct <= 70 && cheesePct >= 22 && cheesePct <= 42) {
+      push('ok', `Cheese sauce structure looks workable: liquid ~${eng.liquidPct.toFixed(0)}%, cheese ~${cheesePct.toFixed(0)}%.`);
     }
   }
 
@@ -948,7 +1115,11 @@ export function computeEngineeringStructure(
   }
   const rem = isReductionSauceFamily(sauceId) ? clamp(opts?.reductionRemainingPct ?? 100, 5, 100) : 100;
   const liqRaw = liquidBulkFromBuckets(buckets);
-  const liq = isReductionSauceFamily(sauceId) ? liqRaw * (rem / 100) : liqRaw;
+  let liq = isReductionSauceFamily(sauceId) ? liqRaw * (rem / 100) : liqRaw;
+  /** Pan sauces list deglaze + stock before mounting butter; typical pass reduces free liquid ~45–55% vs raw slot grams. */
+  if (PAN_IDS.has(sauceId)) {
+    liq *= 0.52;
+  }
   const fatM =
     (buckets.fat ?? 0) +
     (buckets.oil ?? 0) +
