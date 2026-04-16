@@ -84,7 +84,7 @@ export const BASE_SAUCES: Sauce[] = [
     ],
     tip: 'Salt and pepper at the end — taste after the butter goes in.',
     filterTags: ['meat', 'quick', 'weeknight'],
-    wheelTarget: { dx: 0.5, dy: 0.5, rx: 0.1, ry: 0.095 },
+    wheelTarget: { dx: 0.48, dy: 0.52, rx: 0.11, ry: 0.1 },
     recipe: [
       {
         slotId: 'aromatic',
@@ -139,7 +139,7 @@ export const BASE_SAUCES: Sauce[] = [
       'Slowly whisk in warm stock until smooth (start with about 1 cup; add more stock to thin if needed).',
       'Simmer until thick; season with salt and pepper.',
     ],
-    tip: 'Equal parts butter and flour by volume is the classic roux move here.',
+    tip: 'Equal parts butter and flour by volume (e.g. 2 tbsp each) is classic — that is roughly 1.5–1.9:1 by weight, not 1:1 by weight.',
     filterTags: ['comfort', 'holiday', 'poultry'],
     wheelTarget: { dx: 1, dy: 0.5, rx: 0.1, ry: 0.09 },
     recipe: [

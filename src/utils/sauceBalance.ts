@@ -502,34 +502,34 @@ export function evaluateSauceBalance(
         `Fat ÷ (fat + liquid + body) is ~${fr.toFixed(0)}% — above ~30% the finish can read greasy or split more easily.`,
       );
     }
-    if (eng.liquidPct < 56 || eng.liquidPct > 74) {
+    if (eng.liquidPct < 50 || eng.liquidPct > 80) {
       push(
-        eng.liquidPct < 56 ? 'error' : 'warn',
-        `Engineering liquid is ~${eng.liquidPct.toFixed(0)}% (guide ~60–70%). ${
-          eng.liquidPct < 56
-            ? 'Too little free liquid makes mounting butter finicky.'
+        'warn',
+        `Engineering liquid is ~${eng.liquidPct.toFixed(0)}% (guide ~60–70% after typical reduction). ${
+          eng.liquidPct < 50
+            ? 'Very tight on liquid — mounting butter may be harder.'
             : 'Very liquid-forward — reduce more before the butter finish, or use less deglaze/stock.'
         }`,
       );
     }
-    if (eng.fatPct < 17 || eng.fatPct > 34) {
+    if (eng.fatPct < 14 || eng.fatPct > 38) {
       push(
-        eng.fatPct < 17 ? 'warn' : 'warn',
+        'warn',
         `Fat is ~${eng.fatPct.toFixed(0)}% of modeled sauce mass (guide ~20–30%). ${
-          eng.fatPct < 17 ? 'Lean builds need more finish fat or a tighter reduction.' : 'High fat% — watch for greasy mouthfeel.'
+          eng.fatPct < 14 ? 'Lean builds may need more finish fat or a tighter reduction.' : 'High fat% — watch for greasy mouthfeel.'
         }`,
       );
     }
-    if (eng.acidPct > 12) {
+    if (eng.acidPct > 14) {
       push(
         'warn',
-        `Acid is ~${eng.acidPct.toFixed(0)}% (guide ~5–10%). Above ~12% it can taste sharp before fat rounds it.`,
+        `Acid is ~${eng.acidPct.toFixed(0)}% (guide ~5–10%). Above ~14% it can taste sharp before fat rounds it.`,
       );
     }
     if (eng.sweetPct > 4) {
       push('info', `Sweet reads ~${eng.sweetPct.toFixed(0)}% (guide ~0–3% for classic savory pan sauce).`);
     }
-    if (fr >= 15 && eng.liquidPct >= 56 && eng.liquidPct <= 74 && eng.fatPct >= 17 && eng.fatPct <= 34 && eng.acidPct <= 12) {
+    if (fr >= 15 && eng.liquidPct >= 50 && eng.liquidPct <= 80 && eng.fatPct >= 14 && eng.fatPct <= 38 && eng.acidPct <= 14) {
       push(
         'ok',
         `Structure looks workable: liquid ~${eng.liquidPct.toFixed(0)}%, fat ~${eng.fatPct.toFixed(0)}%, fat/(fat+liq+body) ~${fr.toFixed(0)}% (≥15%).`,
@@ -548,10 +548,15 @@ export function evaluateSauceBalance(
     push('info', 'White gravy: roux + milk — dairy scorches faster than stock; keep a gentle bubble.');
     if (butterG > 0 && flourG > 0) {
       const ratio = butterG / flourG;
-      if (ratio < 0.75 || ratio > 1.34) {
+      if (!rouxFatFlourRatioLooksHealthy(ratio)) {
         push(
           'error',
-          `Roux fat:flour is about ${ratio.toFixed(2)}:1 by weight (target ~1:1). Fix the roux before scaling.`,
+          `Roux fat:flour is about ${ratio.toFixed(2)}:1 by weight — looks off-balance (typical is ~1:1 by weight, or ~1.5–1.9:1 when using equal tablespoons).`,
+        );
+      } else if (ratio >= 1.35 && ratio <= 2.05) {
+        push(
+          'info',
+          'Equal-tablespoon roux (~2 tbsp butter + 2 tbsp flour) is usually ~1.5–1.9:1 by weight — that is normal.',
         );
       }
     }
@@ -610,17 +615,22 @@ export function evaluateSauceBalance(
     push('info', 'Gravy (roux): key move is ~1:1 fat:flour in the roux, then dilute ~10–12× with stock.');
     if (butterG > 0 && flourG > 0) {
       const ratio = butterG / flourG;
-      if (ratio < 0.75 || ratio > 1.34) {
+      if (!rouxFatFlourRatioLooksHealthy(ratio)) {
         push(
           'error',
-          `Roux fat:flour is about ${ratio.toFixed(2)}:1 by weight (target ~1:1). Off-balance roux reads greasy or pasty before you even add stock — fix the roux before scaling servings.`,
+          `Roux fat:flour is about ${ratio.toFixed(2)}:1 by weight — looks off-balance (typical is ~1:1 by weight, or ~1.5–1.9:1 when using equal tablespoons).`,
+        );
+      } else if (ratio >= 1.35 && ratio <= 2.05) {
+        push(
+          'info',
+          'Equal-tablespoon roux is usually ~1.5–1.9:1 by weight — that matches this build.',
         );
       }
     }
-    if (flourPct > 10) {
+    if (flourPct > 14) {
       push(
-        'error',
-        `Flour is ~${flourPct.toFixed(0)}% of the whole sauce (guide ~5–8%). Above ~10% you risk gluey / pasty body.`,
+        'warn',
+        `Flour is ~${flourPct.toFixed(0)}% of the whole sauce (guide ~5–8%). Above ~14% you risk gluey / pasty body.`,
       );
     }
     if (liqPct > 85) {
@@ -1019,14 +1029,28 @@ export function evaluateSauceBalance(
 /**
  * Map internal quadrant deltas (typically ~±0.05–0.25) to the printed diagram grid (±3 / ±4)
  * so the live dot uses the **same coordinate space** as `wheelTarget` in `sauces.ts`.
+ * Pan sauces use slightly gentler vertical gain so default builds sit on the type target.
  */
-export function wheelPerceivedToDiagramGrid(dxP: number, dyP: number): { dx: number; dy: number } {
-  const KX = 7;
-  const KY = 9.5;
+export function wheelPerceivedToDiagramGrid(
+  dxP: number,
+  dyP: number,
+  sauceId?: string,
+): { dx: number; dy: number } {
+  let kx = 7;
+  let ky = 9.5;
+  if (sauceId && PAN_IDS.has(sauceId)) {
+    kx = 6.35;
+    ky = 7.15;
+  }
   return {
-    dx: clamp(dxP * KX, -3, 3),
-    dy: clamp(dyP * KY, -4, 4),
+    dx: clamp(dxP * kx, -3, 3),
+    dy: clamp(dyP * ky, -4, 4),
   };
+}
+
+/** Equal *tablespoons* roux is ~1.5–1.9:1 butter:flour by weight; 1:1 by weight is ~1.0. */
+function rouxFatFlourRatioLooksHealthy(ratio: number): boolean {
+  return ratio >= 0.52 && ratio <= 2.45;
 }
 
 /**
@@ -1060,7 +1084,7 @@ export function computeSauceWheelPosition(
   const sw = pSweet / sumP;
   const rawDx = fn - sn;
   const rawDy = an - sw;
-  const { dx, dy } = wheelPerceivedToDiagramGrid(rawDx, rawDy);
+  const { dx, dy } = wheelPerceivedToDiagramGrid(rawDx, rawDy, sauceId);
 
   const scores = {
     salt: scoreFromMass(pSalt, 42),
