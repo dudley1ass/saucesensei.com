@@ -8,8 +8,7 @@ import type { SauceWheelTexture } from '../utils/sauceBalance';
  *   +dx → fat, -dx → salt, +dy → acid, -dy → sweet
  */
 
-const WHEEL_GAIN = 118;
-/** Max distance (px) from center the live dot can sit — keep in sync with `dotFromDxDy`. */
+/** Max distance (px) from center the live dot and style target share (printed diagram scale). */
 const DOT_MAX_RADIUS_PX = 108;
 /** Style target band: radius as fraction of max pull (sauce *type* should land inside). */
 const STYLE_TARGET_RADIUS_FR = 0.15;
@@ -17,8 +16,8 @@ const STYLE_TARGET_RADIUS_FR = 0.15;
 const DIAGRAM_FAT_SALT_RADIUS = 3;
 const DIAGRAM_ACID_SWEET_RADIUS = 4;
 
-/** Map chart grid (same numbers as the printed diagram) → SVG center for the style band. */
-function styleTargetCenterFromDiagram(gx: number, gy: number): { cx: number; cy: number } {
+/** Map diagram grid (same numbers as `wheelTarget` in `sauces.ts`) → SVG; used for BOTH teal band and orange dot. */
+function diagramGridToSvg(gx: number, gy: number): { cx: number; cy: number } {
   const maxR = DOT_MAX_RADIUS_PX;
   let x = (gx / DIAGRAM_FAT_SALT_RADIUS) * maxR;
   let y = -(gy / DIAGRAM_ACID_SWEET_RADIUS) * maxR;
@@ -85,27 +84,13 @@ function textureDotRing(texture: SauceWheelTexture | undefined): {
 
 function describeBias(dx: number, dy: number): string {
   const parts: string[] = [];
-  if (dx > 0.07) parts.push('pulled toward Fat (right)');
-  else if (dx < -0.07) parts.push('pulled toward Salt (left)');
-  if (dy > 0.07) parts.push('pulled toward Acid (top)');
-  else if (dy < -0.07) parts.push('pulled toward Sweet (bottom)');
+  // `dx`/`dy` are diagram-grid units (±3 / ±4), same as `wheelTarget` in data.
+  if (dx > 0.2) parts.push('pulled toward Fat (right)');
+  else if (dx < -0.2) parts.push('pulled toward Salt (left)');
+  if (dy > 0.2) parts.push('pulled toward Acid (top)');
+  else if (dy < -0.2) parts.push('pulled toward Sweet (bottom)');
   if (parts.length === 0) return 'Near the center on this model — reads fairly balanced.';
   return parts.join(' · ');
-}
-
-function dotFromDxDy(dx: number, dy: number): { cx: number; cy: number } {
-  const cx0 = 200;
-  const cy0 = 200;
-  const gain = WHEEL_GAIN;
-  let x = dx * gain;
-  let y = -dy * gain;
-  const maxR = DOT_MAX_RADIUS_PX;
-  const len = Math.hypot(x, y);
-  if (len > maxR && len > 0) {
-    x = (x / len) * maxR;
-    y = (y / len) * maxR;
-  }
-  return { cx: cx0 + x, cy: cy0 + y };
 }
 
 export function SauceBalanceWheelVisual({
@@ -130,9 +115,9 @@ export function SauceBalanceWheelVisual({
   const clipUid = useId().replace(/:/g, '');
   const arrowId = useId().replace(/:/g, '');
   const umamiGradId = `umami-grad-${clipUid}`;
-  const { cx, cy } = dotFromDxDy(dx, dy);
+  const { cx, cy } = diagramGridToSvg(dx, dy);
   const prev =
-    prevDx !== undefined && prevDy !== undefined ? dotFromDxDy(prevDx, prevDy) : null;
+    prevDx !== undefined && prevDy !== undefined ? diagramGridToSvg(prevDx, prevDy) : null;
   const bias = describeBias(dx, dy);
   const vb = 400;
   const h = compact ? 260 : 400;
@@ -162,7 +147,7 @@ export function SauceBalanceWheelVisual({
   const targetEllipse =
     sauceTarget != null
       ? (() => {
-          const { cx, cy } = styleTargetCenterFromDiagram(sauceTarget.dx, sauceTarget.dy);
+          const { cx, cy } = diagramGridToSvg(sauceTarget.dx, sauceTarget.dy);
           const baseR = DOT_MAX_RADIUS_PX * STYLE_TARGET_RADIUS_FR;
           const rxN = Math.max(1e-6, sauceTarget.rx);
           const ryN = Math.max(1e-6, sauceTarget.ry);
