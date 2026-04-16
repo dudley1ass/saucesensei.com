@@ -52,8 +52,6 @@ export type SauceBalanceWheelVisualProps = {
   hideQuadrantStrip?: boolean;
   /** Ideal region for this sauce *type* on the wheel (center from data; band size fixed in UI). */
   sauceTarget?: SauceWheelTarget | null;
-  /** Published default recipe position (same dx/dy as live dot); open circle on the wheel */
-  baseRecipeDot?: { dx: number; dy: number } | null;
   /** Body read — dot ring color / weight / dash (recipe view). */
   texture?: SauceWheelTexture;
   title?: string;
@@ -130,7 +128,6 @@ export function SauceBalanceWheelVisual({
   dense = false,
   hideQuadrantStrip = false,
   sauceTarget = null,
-  baseRecipeDot = null,
   texture,
   title = 'Sauce balance wheel',
   caption,
@@ -181,10 +178,8 @@ export function SauceBalanceWheelVisual({
         })()
       : null;
 
-  const basePt = baseRecipeDot ? dotFromDxDy(baseRecipeDot.dx, baseRecipeDot.dy) : null;
-
   const wheelSvg = (
-    <div className={`relative mx-auto ${compact ? 'max-w-[220px]' : 'max-w-sm'}`}>
+    <div className={`relative mx-auto ${compact ? 'max-w-[260px]' : 'max-w-md'}`}>
       <svg
         viewBox={`0 0 ${vb} ${vb}`}
         className="w-full h-auto drop-shadow-xl"
@@ -260,22 +255,24 @@ export function SauceBalanceWheelVisual({
         <line x1={200} y1={200} x2={48} y2={200} stroke="white" strokeOpacity="0.12" strokeWidth="1" />
 
         {(() => {
-          const acid = polarPoint(200, 200, 195, -90);
-          const fat = polarPoint(200, 200, 195, 0);
-          const sweet = polarPoint(200, 200, 195, 90);
-          const salt = polarPoint(200, 200, 195, 180);
+          const r = 210;
+          const acid = polarPoint(200, 200, r, -90);
+          const fat = polarPoint(200, 200, r, 0);
+          const sweet = polarPoint(200, 200, r, 90);
+          const salt = polarPoint(200, 200, r, 180);
+          const fs = 19;
           return (
             <g aria-hidden>
-              <text x={acid.x} y={acid.y - 2} textAnchor="middle" fill="#fecaca" style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.05em' }}>
+              <text x={acid.x} y={acid.y - 2} textAnchor="middle" fill="#fecaca" style={{ fontSize: fs, fontWeight: 800, letterSpacing: '0.05em' }}>
                 ACID
               </text>
-              <text x={fat.x + 2} y={fat.y + 4} textAnchor="start" fill="#fde68a" style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.05em' }}>
+              <text x={fat.x + 2} y={fat.y + 5} textAnchor="start" fill="#fde68a" style={{ fontSize: fs, fontWeight: 800, letterSpacing: '0.05em' }}>
                 FAT
               </text>
-              <text x={sweet.x} y={sweet.y + 14} textAnchor="middle" fill="#bbf7d0" style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.05em' }}>
+              <text x={sweet.x} y={sweet.y + 18} textAnchor="middle" fill="#bbf7d0" style={{ fontSize: fs, fontWeight: 800, letterSpacing: '0.05em' }}>
                 SWEET
               </text>
-              <text x={salt.x - 2} y={salt.y + 4} textAnchor="end" fill="#bfdbfe" style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.05em' }}>
+              <text x={salt.x - 2} y={salt.y + 5} textAnchor="end" fill="#bfdbfe" style={{ fontSize: fs, fontWeight: 800, letterSpacing: '0.05em' }}>
                 SALT
               </text>
             </g>
@@ -298,21 +295,6 @@ export function SauceBalanceWheelVisual({
         )}
 
         {motion}
-
-        {basePt && (
-          <g aria-label="Base recipe (published defaults)">
-            <circle
-              cx={basePt.cx}
-              cy={basePt.cy}
-              r={12}
-              fill="none"
-              stroke="#f5d0fe"
-              strokeWidth="2.5"
-              strokeOpacity="0.95"
-            />
-            <circle cx={basePt.cx} cy={basePt.cy} r={3} fill="#f5d0fe" fillOpacity="0.35" />
-          </g>
-        )}
 
         {texture !== undefined ? (
           <circle
@@ -347,14 +329,14 @@ export function SauceBalanceWheelVisual({
           dense ? 'px-3 py-2' : 'px-4 py-3'
         }`}
       >
-        <h2 className={`font-bold text-amber-100 tracking-wide uppercase ${dense ? 'text-xs' : 'text-sm'}`}>{title}</h2>
+        <h2 className="font-bold text-amber-100 tracking-wide uppercase text-sm">{title}</h2>
         {!dense && (
           <p className="text-xs text-slate-300 mt-1 leading-relaxed">
             {caption ??
               'Orange dot = perceived balance (not raw grams). Axes: Acid ↑ Sweet ↓ Fat → Salt ←. Umami reads as center glow.'}
           </p>
         )}
-        <p className={`font-semibold text-amber-200/95 ${dense ? 'text-[10px] mt-1' : 'text-xs mt-2'}`}>{bias}</p>
+        <p className="font-semibold text-amber-200/95 text-sm mt-2">{bias}</p>
       </div>
 
       <div
@@ -363,7 +345,7 @@ export function SauceBalanceWheelVisual({
       >
         {showReferenceImage && (
           <div className="flex flex-col justify-center">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Reference graphic</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Reference graphic</p>
             <img
               src="/sauce-balance-wheel.svg"
               alt="Sauce balance wheel reference (Acid top, Sweet bottom, Fat right, Salt left)"
@@ -373,15 +355,15 @@ export function SauceBalanceWheelVisual({
         )}
         <div className="flex flex-col justify-center">
           {!showReferenceImage && (
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Live (perceived)</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Live (perceived)</p>
           )}
           {showReferenceImage && (
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 md:hidden">Reference</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1 md:hidden">Reference</p>
           )}
           {wheelSvg}
-          {(texture !== undefined || basePt || targetEllipse) && (
+          {(texture !== undefined || targetEllipse) && (
             <div className="mt-2 pt-2 border-t border-white/10 px-1 space-y-1.5">
-              <div className="flex flex-wrap items-center justify-between gap-2 text-[10px]">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                 <span className="font-bold uppercase tracking-wider text-slate-500">Umami (glow)</span>
                 <span className="flex items-center gap-2 text-slate-300">
                   <span
@@ -399,7 +381,7 @@ export function SauceBalanceWheelVisual({
                 </span>
               </div>
               {targetEllipse ? (
-                <div className="flex flex-wrap items-center justify-between gap-2 text-[10px]">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                   <span className="font-bold uppercase tracking-wider text-slate-500">Style target</span>
                   <span className="flex items-center gap-2 text-slate-300">
                     <svg width="28" height="14" viewBox="0 0 28 14" className="shrink-0" aria-hidden>
@@ -420,7 +402,7 @@ export function SauceBalanceWheelVisual({
                 </div>
               ) : null}
               {texture !== undefined ? (
-                <div className="flex flex-wrap items-center justify-between gap-2 text-[10px]">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                   <span className="font-bold uppercase tracking-wider text-slate-500">Texture (dot ring)</span>
                   <span className="flex items-center gap-2 text-slate-300 capitalize">
                     <svg width="28" height="14" viewBox="0 0 28 14" className="shrink-0" aria-hidden>
@@ -435,25 +417,6 @@ export function SauceBalanceWheelVisual({
                       />
                     </svg>
                     {texture.replace(/-/g, ' ')}
-                  </span>
-                </div>
-              ) : null}
-              {basePt ? (
-                <div className="flex flex-wrap items-center justify-between gap-2 text-[10px]">
-                  <span className="font-bold uppercase tracking-wider text-slate-500">Base recipe</span>
-                  <span className="flex items-center gap-2 text-slate-300">
-                    <svg width="28" height="14" viewBox="0 0 28 14" className="shrink-0" aria-hidden>
-                      <circle
-                        cx="14"
-                        cy="7"
-                        r="5"
-                        fill="none"
-                        stroke="#f5d0fe"
-                        strokeWidth="2"
-                        strokeOpacity="0.95"
-                      />
-                    </svg>
-                    Lavender ring on wheel
                   </span>
                 </div>
               ) : null}

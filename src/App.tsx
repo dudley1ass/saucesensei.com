@@ -329,25 +329,6 @@ function SauceDetail({
     return [...core, ...extra];
   }, [recipe, customLines, displayGramsBase]);
 
-  /** Published defaults (1? batch, first option each slot): static base dot on wheel + baseline for balance copy */
-  const defaultBalanceLines: RecipeLineInput[] = useMemo(
-    () =>
-      sauce.recipe.map((item) => ({
-        slotId: item.slotId,
-        optionId: item.options[0].id,
-        grams: item.amountGrams,
-      })),
-    [sauce],
-  );
-
-  const baseWheel = useMemo(
-    () =>
-      computeSauceWheelPosition(sauce.id, defaultBalanceLines, {
-        reductionRemainingPct: isReductionSauceFamily(sauce.id) ? 100 : undefined,
-      }),
-    [sauce.id, defaultBalanceLines],
-  );
-
   const balance = useMemo(
     () =>
       evaluateSauceBalance(sauce.id, balanceLines, {
@@ -539,7 +520,7 @@ function SauceDetail({
             <p className="text-sm text-gray-600 mt-1">Sauce Sensei ? {fam.label}</p>
           </div>
 
-          <div className="lg:grid lg:grid-cols-[minmax(252px,288px)_1fr] xl:grid-cols-[minmax(268px,300px)_1fr] gap-5 items-start">
+          <div className="lg:grid lg:grid-cols-[minmax(288px,340px)_1fr] xl:grid-cols-[minmax(300px,360px)_1fr] gap-5 items-start">
             <aside className="space-y-3 lg:sticky lg:top-4 self-start app-print-hide">
               <SauceBalanceWheelVisual
                 dx={wheel.dx}
@@ -553,13 +534,11 @@ function SauceDetail({
                 prevDy={prevDy}
                 showReferenceImage={false}
                 dense
-                compact
                 hideQuadrantStrip
                 sauceTarget={sauce.wheelTarget}
-                baseRecipeDot={{ dx: baseWheel.dx, dy: baseWheel.dy }}
                 texture={wheel.texture}
                 title="Flavor wheel"
-                caption="Teal dashed = where this sauce type should land (~15% band from ideal center). Lavender ring = published base recipe. Orange = your live build. Glow = umami; dot outline = texture."
+                caption="Teal dashed = style target for this sauce type. Orange dot = your build. Center glow = umami; ring around dot = body/texture."
               />
               <FlavorPerceptionPanel wheel={wheel} />
             </aside>
@@ -908,6 +887,24 @@ export default function App() {
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="flex flex-col items-center mb-10 print:hidden px-4">
+          <img
+            src="/sauce-balance-wheel.png"
+            alt="Sauce balance wheel: acid at top, sweet at bottom, fat at right, salt at left"
+            className="w-[min(420px,94vw)] sm:w-[min(480px,92vw)] max-w-[520px] h-auto rounded-xl shadow-lg border border-amber-200/70 bg-white"
+            onError={(e) => {
+              const el = e.currentTarget;
+              if (!el.dataset.fallback) {
+                el.dataset.fallback = '1';
+                el.src = '/sauce-balance-wheel.svg';
+              }
+            }}
+          />
+          <p className="mt-3 text-center text-sm text-gray-600 max-w-lg leading-relaxed">
+            How the balance model is laid out. Open any sauce card for the live wheel that tracks your recipe.
+          </p>
+        </div>
+
         {scienceLibraryOpen && (
           <section className="mb-10 rounded-2xl border border-violet-200 bg-white/95 p-4 sm:p-6 shadow-sm">
             <div className="flex items-start justify-between gap-3 mb-4">
@@ -950,24 +947,6 @@ export default function App() {
           </h2>
           <p className="text-sm text-gray-600">
             Pick a card to open an editable recipe, servings scaling, and the balance wheel.
-          </p>
-        </div>
-
-        <div className="flex flex-col items-center mb-8 print:hidden px-4">
-          <img
-            src="/sauce-balance-wheel.png"
-            alt="Sauce balance model: acid at top, sweet at bottom, fat at right, salt at left"
-            className="w-[min(354px,92vw)] sm:w-[min(390px,92vw)] max-w-[442px] h-auto rounded-lg shadow-md border border-amber-200/60 bg-white"
-            onError={(e) => {
-              const el = e.currentTarget;
-              if (!el.dataset.fallback) {
-                el.dataset.fallback = '1';
-                el.src = '/sauce-balance-wheel.svg';
-              }
-            }}
-          />
-          <p className="mt-2 text-center text-xs text-gray-500 max-w-sm leading-relaxed">
-            Reference layout for the model. Open a sauce card to edit the recipe and watch the live perceived-balance wheel respond.
           </p>
         </div>
 
