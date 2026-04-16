@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: saucesensei
+    env: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    routes:
+      # SPA fallback so direct links to article/tool routes work on refresh.
+      - type: rewrite
+        source: /*
+        destination: /index.html
