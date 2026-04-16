@@ -12,9 +12,11 @@ import {
   X,
 } from 'lucide-react';
 import { getPresetIngredientCatalog } from './data/presetIngredients';
+import { buildSauceHubs, hubCardMeta, recipesInSameHub, type SauceHub } from './data/sauceHubs';
 import { RecipeItem, SAUCE_FAMILIES, Sauce, sauces } from './data/sauces';
 import { formatKitchenCups, snapCupsToEighth } from './utils/kitchenVolume';
 import {
+  computeEngineeringStructure,
   computeSauceWheelPosition,
   evaluateSauceBalance,
   isReductionSauceFamily,
@@ -23,6 +25,7 @@ import {
 } from './utils/sauceBalance';
 import { FlavorPerceptionPanel } from './components/FlavorPerceptionPanel';
 import { SauceBalanceWheelVisual } from './components/SauceBalanceWheelVisual';
+import { SauceStructurePanel } from './components/SauceStructurePanel';
 import { ArticleView } from './components/ArticleView';
 import { KitchenSciencePanel } from './components/KitchenSciencePanel';
 import { SCIENCE_ARTICLES, getScienceArticle } from './data/scienceArticles';
@@ -229,21 +232,43 @@ function AddIngredientModal({
   );
 }
 
-function SauceCard({
-  sauce,
-  onOpen,
-}: {
-  sauce: Sauce;
-  onOpen: () => void;
-}) {
-  const fam = SAUCE_FAMILIES[sauce.family];
+function sauceMatchesLandingFilters(
+  s: Sauce,
+  qLower: string,
+  family: Sauce['family'] | 'all',
+): boolean {
+  if (family !== 'all' && s.family !== family) return false;
+  if (!qLower) return true;
+  const blob = [
+    s.name,
+    s.subtitle,
+    s.variantGroup ?? '',
+    ...s.useFor,
+    ...s.steps,
+    ...s.recipe.flatMap((r) => r.options.map((opt) => opt.name)),
+    s.tip,
+    ...s.filterTags,
+    SAUCE_FAMILIES[s.family].label,
+  ]
+    .join(' ')
+    .toLowerCase();
+  return blob.includes(qLower);
+}
+
+function SauceHubCard({ hub, onOpen }: { hub: SauceHub; onOpen: () => void }) {
+  const meta = hubCardMeta(hub);
+  const first = hub.recipes[0];
+  const fam = SAUCE_FAMILIES[first.family];
   return (
     <div className="bg-white rounded-xl shadow-md border-2 border-transparent hover:border-amber-700/30 hover:shadow-lg transition-all duration-300 p-6 flex flex-col h-full group">
       <div className="flex items-start justify-between mb-3">
         <div className="text-4xl" aria-hidden>
-          {sauce.emoji}
+          {meta.emoji}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <span className="text-xs font-semibold px-2 py-1 rounded-full bg-violet-50 text-violet-900 border border-violet-100">
+            {meta.countLabel}
+          </span>
           <span className="text-xs font-semibold px-2 py-1 rounded-full bg-amber-50 text-amber-900">
             {fam.emoji} {fam.label}
           </span>
@@ -251,18 +276,15 @@ function SauceCard({
         </div>
       </div>
 
-      <h3 className="text-lg font-bold text-gray-900 mb-0.5">{sauce.name}</h3>
-      <p className="text-sm font-medium text-amber-900/90 mb-2 leading-snug">
-        <span className="text-gray-500 font-normal">Style: </span>
-        {sauce.subtitle}
-      </p>
+      <h3 className="text-lg font-bold text-gray-900 mb-0.5">{meta.title}</h3>
+      <p className="text-sm font-medium text-amber-900/90 mb-2 leading-snug">{meta.subtitle}</p>
       <p className="text-sm text-gray-600 mb-3 flex-grow">
-        <span className="font-semibold text-indigo-950">Use for: </span>
-        {formatUseForList(sauce.useFor)}.
+        <span className="font-semibold text-indigo-950">Example use: </span>
+        {formatUseForList(first.useFor)}.
       </p>
 
       <div className="border-t border-gray-100 pt-3 mb-4">
-        <p className="text-xs text-gray-500 italic leading-relaxed">{sauce.tip}</p>
+        <p className="text-xs text-gray-500 italic leading-relaxed">{first.tip}</p>
       </div>
 
       <button
@@ -271,7 +293,7 @@ function SauceCard({
         className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm text-white transition-all shadow-md hover:shadow-lg"
         style={{ background: BTN_GRADIENT }}
       >
-        Open recipe
+        Open recipe file
         <ArrowRight className="w-4 h-4" />
       </button>
     </div>
@@ -280,11 +302,16 @@ function SauceCard({
 
 function SauceDetail({
   sauce,
+  hubRecipes,
+  onSelectHubRecipe,
   onBack,
   onPrint,
   onOpenScienceLibrary,
 }: {
   sauce: Sauce;
+  /** Same variant-group builds; when more than one, header shows recipe tabs. */
+  hubRecipes?: Sauce[];
+  onSelectHubRecipe?: (id: string) => void;
   onBack: () => void;
   onPrint: () => void;
   onOpenScienceLibrary: () => void;
@@ -332,6 +359,16 @@ function SauceDetail({
   const balance = useMemo(
     () =>
       evaluateSauceBalance(sauce.id, balanceLines, {
+        reductionRemainingPct: isReductionSauceFamily(sauce.id)
+          ? reductionRemainingPct
+          : undefined,
+      }),
+    [sauce.id, balanceLines, reductionRemainingPct],
+  );
+
+  const structure = useMemo(
+    () =>
+      computeEngineeringStructure(sauce.id, balanceLines, {
         reductionRemainingPct: isReductionSauceFamily(sauce.id)
           ? reductionRemainingPct
           : undefined,
@@ -456,9 +493,9 @@ function SauceDetail({
         </div>
         <p className="text-xs text-indigo-900/80 sm:col-span-3 font-medium">
           Kitchen measure: <span className="text-rose-800">{kitchen}</span>
-          {' ? '}
+          {' · '}
           <span className="text-gray-600">
-            {Math.round(displayG)} g total for {servings}? batch
+            {Math.round(displayG)} g total for {servings}× batch
           </span>
         </p>
       </div>
@@ -493,7 +530,7 @@ function SauceDetail({
                   {sauce.name}
                 </h1>
                 <p className="text-amber-100/95 text-xs sm:text-sm truncate">
-                  {fam.label} ? {sauce.subtitle}
+                  {fam.label} · {sauce.subtitle}
                 </p>
               </div>
             </div>
@@ -505,6 +542,32 @@ function SauceDetail({
               <Printer className="w-3.5 h-3.5" /> Print
             </button>
           </div>
+          {hubRecipes && hubRecipes.length > 1 && onSelectHubRecipe ? (
+            <div className="mt-3 pt-3 border-t border-white/15">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-200/85 mb-2 px-0.5">
+                Recipe file — pick a build
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {hubRecipes.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => onSelectHubRecipe(r.id)}
+                    className={`shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold border transition-colors ${
+                      r.id === sauce.id
+                        ? 'bg-white text-rose-900 border-white shadow'
+                        : 'bg-white/10 text-white border-white/25 hover:bg-white/18'
+                    }`}
+                  >
+                    <span className="mr-1" aria-hidden>
+                      {r.emoji}
+                    </span>
+                    {r.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </header>
 
@@ -515,9 +578,9 @@ function SauceDetail({
         >
           <div className="hidden print:block border-b-2 border-gray-800 pb-4 mb-4">
             <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Georgia, serif' }}>
-              {sauce.emoji} {sauce.name} ? {sauce.subtitle}
+              {sauce.emoji} {sauce.name} · {sauce.subtitle}
             </h1>
-            <p className="text-sm text-gray-600 mt-1">Sauce Sensei ? {fam.label}</p>
+            <p className="text-sm text-gray-600 mt-1">Sauce Sensei · {fam.label}</p>
           </div>
 
           <div className="lg:grid lg:grid-cols-[minmax(288px,340px)_1fr] xl:grid-cols-[minmax(300px,360px)_1fr] gap-5 items-start">
@@ -541,6 +604,7 @@ function SauceDetail({
                 caption="Teal dashed = style target for this sauce type. Orange dot = your build. Center glow = umami; ring around dot = body/texture."
               />
               <FlavorPerceptionPanel wheel={wheel} />
+              <SauceStructurePanel sauce={sauce} structure={structure} />
             </aside>
 
             <div className="space-y-6 min-w-0">
@@ -572,7 +636,7 @@ function SauceDetail({
                     }
                     className="w-14 text-center text-xs font-bold border border-amber-200 rounded-md py-0.5 bg-white"
                   />
-                  <span className="text-[10px] text-amber-900/80">? batch</span>
+                  <span className="text-[10px] text-amber-900/80">× batch</span>
                 </div>
                 <div className="flex bg-slate-100 rounded-lg p-0.5 border border-slate-200">
                   {(['metric', 'volumetric'] as MeasurementMode[]).map((nextMode) => (
@@ -643,7 +707,7 @@ function SauceDetail({
                 return renderIngredientRow(
                   item.slotId,
                   item.label,
-                  'Preset slot ? swap ingredient below',
+                  'Preset slot — swap ingredient below',
                   displayG,
                   selected.gramsPerCup,
                   (d) => updateCoreAmount(item.slotId, d),
@@ -666,7 +730,7 @@ function SauceDetail({
                 return renderIngredientRow(
                   c.id,
                   c.label,
-                  `Custom ? wheel: ${c.wheelTag}`,
+                  `Custom — wheel: ${c.wheelTag}`,
                   displayG,
                   c.gramsPerCup,
                   (d) => updateCustomAmount(c.id, d),
@@ -687,7 +751,7 @@ function SauceDetail({
               Balance guard
             </h2>
             <p className="text-xs text-sky-950/90 leading-relaxed">
-              Ratios are approximate ? fond, evaporation, and fine salt are only partly modeled ? but they track
+              Ratios are approximate — fond, evaporation, and fine salt are only partly modeled — but they track
               the failure modes you listed, especially fat, acid, dilution, and roux balance. The wheel
               uses a hand-tuned perceived layer (fat rounds harshness, liquid dilutes, reduction concentrates).
             </p>
@@ -713,12 +777,12 @@ function SauceDetail({
                 phase plus an emulsifier, agitation, or enough viscosity from reduction.
               </li>
               <li>
-                <span className="font-bold">Flavor balance:</span> acid often lands around ~5?25%
+                <span className="font-bold">Flavor balance:</span> acid often lands around ~5–25%
                 depending on the family; fat rounds acid; salt amplifies everything.
               </li>
               <li>
                 <span className="font-bold">Practical targets:</span> pan sauce ~65% liquid / ~30%
-                butter finish; gravy ~80% liquid / ~10% roux; soy glaze is a salt?sweet?acid triangle.
+                butter finish; gravy ~80% liquid / ~10% roux; soy glaze is a salt–sweet–acid triangle.
               </li>
             </ul>
           </section>
@@ -796,32 +860,29 @@ export default function App() {
 
   const scienceArticle = scienceArticleSlug ? getScienceArticle(scienceArticleSlug) : undefined;
 
-  const filtered = useMemo(() => {
+  const allHubs = useMemo(() => buildSauceHubs(sauces), []);
+
+  const filteredHubs = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return sauces.filter((s) => {
-      if (family !== 'all' && s.family !== family) return false;
-      if (!q) return true;
-      const blob = [
-        s.name,
-        s.subtitle,
-        s.variantGroup ?? '',
-        ...s.useFor,
-        ...s.steps,
-        ...s.recipe.flatMap((r) => r.options.map((opt) => opt.name)),
-        s.tip,
-        ...s.filterTags,
-        SAUCE_FAMILIES[s.family].label,
-      ]
-        .join(' ')
-        .toLowerCase();
-      return blob.includes(q);
-    });
-  }, [search, family]);
+    return allHubs
+      .map((hub) => ({
+        ...hub,
+        recipes: hub.recipes.filter((s) => sauceMatchesLandingFilters(s, q, family)),
+      }))
+      .filter((hub) => hub.recipes.length > 0);
+  }, [allHubs, search, family]);
+
+  const hubRecipeListForDetail = useMemo(() => {
+    if (!active) return [];
+    return recipesInSameHub(active.id);
+  }, [active]);
 
   if (active) {
     return (
       <SauceDetail
         sauce={active}
+        hubRecipes={hubRecipeListForDetail.length > 1 ? hubRecipeListForDetail : undefined}
+        onSelectHubRecipe={hubRecipeListForDetail.length > 1 ? (id) => setActiveId(id) : undefined}
         onBack={() => setActiveId(null)}
         onPrint={() => window.print()}
         onOpenScienceLibrary={() => {
@@ -861,7 +922,7 @@ export default function App() {
                   Sauce Sensei
                 </h1>
                 <p className="text-amber-100/95 text-sm max-w-xl">
-                  Everything sauce ? interactive builds, balance guardrails, and SenseiFood science articles.
+                  Everything sauce — interactive builds, balance guardrails, and SenseiFood science articles.
                 </p>
               </div>
             </div>
@@ -913,7 +974,7 @@ export default function App() {
                   Sauce science library
                 </h2>
                 <p className="text-sm text-violet-900/90 mt-1 max-w-2xl">
-                  Long-form articles (600+ words each) with diagrams ? tied to SenseiFood URLs for sharing and CMS.
+                  Long-form articles (600+ words each) with diagrams — tied to SenseiFood URLs for sharing and CMS.
                 </p>
               </div>
               <button
@@ -943,10 +1004,11 @@ export default function App() {
 
         <div className="text-center mb-8 max-w-2xl mx-auto">
           <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Georgia, serif' }}>
-            Sauces & variants
+            Sauce families
           </h2>
           <p className="text-sm text-gray-600">
-            Pick a card to open an editable recipe, servings scaling, and the balance wheel.
+            Each card is a sauce family (pan, gravy, cream, tomato, vinaigrette, mayo, reduction, herb, soy, cheese).
+            Open a hub to work a recipe; when a hub lists several builds, use the recipe tabs in the header to switch.
           </p>
         </div>
 
@@ -1006,21 +1068,25 @@ export default function App() {
           </div>
         </div>
 
-        {filtered.length === 0 ? (
+        {filteredHubs.length === 0 ? (
           <p className="text-center text-gray-500 py-16 text-sm">
-            No sauces match that search. Try a shorter term or reset filters.
+            No sauce families match that search. Try a shorter term or reset filters.
           </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filtered.map((s) => (
-              <SauceCard key={s.id} sauce={s} onOpen={() => setActiveId(s.id)} />
+            {filteredHubs.map((hub) => (
+              <SauceHubCard
+                key={hub.hubKey}
+                hub={hub}
+                onOpen={() => setActiveId(hub.recipes[0].id)}
+              />
             ))}
           </div>
         )}
       </main>
 
       <footer className="text-center text-xs text-gray-500 pb-8 px-4">
-        Sauce Sensei ? a practical sauce playbook. Built in the spirit of CakeSensei.
+        Sauce Sensei — a practical sauce playbook. Built in the spirit of CakeSensei.
       </footer>
     </div>
   );

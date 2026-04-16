@@ -904,3 +904,54 @@ export function computeSauceWheelPosition(
     suggestions,
   };
 }
+
+/** Approximate engineering pillars from internal buckets (final-ish mass; reduction scales liquid). */
+export type EngineeringStructure = {
+  liquidPct: number;
+  fatPct: number;
+  acidPct: number;
+  sweetPct: number;
+  bodyPct: number;
+  /** Fat / (fat + liquid + body) — used for pan-style “fat / total” checks. */
+  fatRatio: number;
+};
+
+export function computeEngineeringStructure(
+  sauceId: string,
+  lines: RecipeLineInput[],
+  opts?: { reductionRemainingPct?: number },
+): EngineeringStructure {
+  const buckets: Record<string, number> = {};
+  for (const line of lines) {
+    const part = lineToBuckets(sauceId, line);
+    for (const [k, v] of Object.entries(part)) add(buckets, k, v);
+  }
+  const rem = isReductionSauceFamily(sauceId) ? clamp(opts?.reductionRemainingPct ?? 100, 5, 100) : 100;
+  const liqRaw = liquidBulkFromBuckets(buckets);
+  const liq = isReductionSauceFamily(sauceId) ? liqRaw * (rem / 100) : liqRaw;
+  const fatM =
+    (buckets.fat ?? 0) +
+    (buckets.oil ?? 0) +
+    (buckets.oilHeavy ?? 0) * 0.85 +
+    (buckets.rouxFat ?? 0) +
+    (buckets.finishFat ?? 0) +
+    (buckets.extraFat ?? 0) +
+    (buckets.cream ?? 0) * 0.48;
+  const acidM = (buckets.acid ?? 0) + (buckets.emulsifier ?? 0) * 0.12 + (buckets.tomato ?? 0) * 0.1;
+  const sweetM = buckets.sweet ?? 0;
+  const bodyM =
+    starchBulkFromBuckets(buckets) +
+    (buckets.solid ?? 0) * 0.12 +
+    (buckets.cheese ?? 0) * 0.22 +
+    (buckets.tomato ?? 0) * 0.35;
+  const denom = liq + fatM + acidM + sweetM + bodyM + 1e-9;
+  const fatDenom = liq + fatM + bodyM + 1e-9;
+  return {
+    liquidPct: (liq / denom) * 100,
+    fatPct: (fatM / denom) * 100,
+    acidPct: (acidM / denom) * 100,
+    sweetPct: (sweetM / denom) * 100,
+    bodyPct: (bodyM / denom) * 100,
+    fatRatio: fatM / fatDenom,
+  };
+}

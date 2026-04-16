@@ -66,7 +66,7 @@ export const SAUCE_FAMILIES: Record<Sauce['family'], { label: string; emoji: str
 };
 
 /** Standard builds: cup = 240 ml where liquid; tbsp ≈ 14.2 g butter; 1 tbsp flour ≈ 7.8 g AP. */
-const BASE_SAUCES: Sauce[] = [
+export const BASE_SAUCES: Sauce[] = [
   {
     id: 'pan-sauce',
     emoji: '\u{1F373}',
@@ -242,6 +242,7 @@ const BASE_SAUCES: Sauce[] = [
     name: 'Vinaigrette',
     subtitle: 'Oil + vinegar + mustard + salt',
     family: 'cold',
+    variantGroup: 'Vinaigrette',
     useFor: ['salads', 'roasted vegetables'],
     steps: [
       'Combine oil (3 tbsp), vinegar (1 tbsp), mustard (1 tsp), and salt.',
@@ -263,6 +264,7 @@ const BASE_SAUCES: Sauce[] = [
     name: 'Mayo / Aioli',
     subtitle: 'Egg yolk + oil (from scratch)',
     family: 'emulsion',
+    variantGroup: 'Mayo / aioli',
     useFor: ['fries', 'sandwiches', 'wraps'],
     steps: [
       'Whisk egg yolk with lemon juice (and a pinch of salt) until smooth.',
@@ -314,6 +316,7 @@ const BASE_SAUCES: Sauce[] = [
     name: 'Reduction Sauce',
     subtitle: 'Wine or stock, reduced hard',
     family: 'reduction',
+    variantGroup: 'Reductions',
     useFor: ['steak', 'pork', 'plating sauces'],
     steps: [
       'Simmer wine or stock uncovered until reduced by about 50–70%.',
@@ -343,6 +346,7 @@ const BASE_SAUCES: Sauce[] = [
     name: 'Herb Sauce',
     subtitle: 'Chimichurri-style (parsley + oil + vinegar)',
     family: 'herb',
+    variantGroup: 'Herb sauces',
     useFor: ['steak', 'chicken', 'vegetables'],
     steps: [
       'Chop or blend parsley with garlic.',
@@ -373,6 +377,7 @@ const BASE_SAUCES: Sauce[] = [
     name: 'Soy-Based Sauce',
     subtitle: 'Soy + water + sugar + garlic',
     family: 'umami',
+    variantGroup: 'Soy system',
     useFor: ['chicken', 'rice dishes'],
     steps: [
       'Combine soy sauce, water, sugar, garlic, and vinegar.',
@@ -413,6 +418,7 @@ const BASE_SAUCES: Sauce[] = [
     name: 'Cheese Sauce',
     subtitle: 'Roux + milk + shredded cheese',
     family: 'cheese',
+    variantGroup: 'Cheese sauces',
     useFor: ['casseroles', 'vegetables', 'comfort food'],
     steps: [
       'Melt butter, whisk in flour, and cook the roux briefly.',
@@ -439,7 +445,7 @@ const BASE_SAUCES: Sauce[] = [
   },
 ];
 
-const VARIANT_SAUCES: Sauce[] = [
+export const VARIANT_SAUCES: Sauce[] = [
   {
     id: 'white-gravy',
     emoji: '\u{1F9C2}',

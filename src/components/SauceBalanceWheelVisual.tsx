@@ -108,11 +108,6 @@ function dotFromDxDy(dx: number, dy: number): { cx: number; cy: number } {
   return { cx: cx0 + x, cy: cy0 + y };
 }
 
-function polarPoint(cx: number, cy: number, r: number, deg: number): { x: number; y: number } {
-  const rad = (deg * Math.PI) / 180;
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-}
-
 export function SauceBalanceWheelVisual({
   dx,
   dy,
@@ -178,14 +173,34 @@ export function SauceBalanceWheelVisual({
         })()
       : null;
 
+  const axisLabelClass = compact
+    ? 'text-[10px] font-extrabold tracking-widest uppercase'
+    : 'text-xs sm:text-sm font-extrabold tracking-widest uppercase';
+
   const wheelSvg = (
     <div className={`relative mx-auto ${compact ? 'max-w-[260px]' : 'max-w-md'}`}>
-      <svg
-        viewBox={`0 0 ${vb} ${vb}`}
-        className="w-full h-auto drop-shadow-xl"
-        role="img"
-        aria-label={`Flavor wheel. ${bias}`}
-      >
+      <div className={compact ? 'relative pt-5 pb-5 pl-8 pr-8' : 'relative pt-7 pb-7 pl-10 pr-10'}>
+        <span
+          className={`pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 text-red-200 drop-shadow ${axisLabelClass}`}
+        >
+          Acid
+        </span>
+        <span
+          className={`pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-amber-200 drop-shadow ${axisLabelClass}`}
+        >
+          Fat
+        </span>
+        <span
+          className={`pointer-events-none absolute left-1/2 bottom-0 translate-y-0.5 -translate-x-1/2 text-emerald-200 drop-shadow ${axisLabelClass}`}
+        >
+          Sweet
+        </span>
+        <span
+          className={`pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-sky-200 drop-shadow ${axisLabelClass}`}
+        >
+          Salt
+        </span>
+        <svg viewBox={`0 0 ${vb} ${vb}`} className="w-full h-auto drop-shadow-xl">
         <defs>
           <radialGradient id="wheelCenter" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#ffffff" />
@@ -254,31 +269,6 @@ export function SauceBalanceWheelVisual({
         <line x1={200} y1={200} x2={200} y2={352} stroke="white" strokeOpacity="0.12" strokeWidth="1" />
         <line x1={200} y1={200} x2={48} y2={200} stroke="white" strokeOpacity="0.12" strokeWidth="1" />
 
-        {(() => {
-          const r = 210;
-          const acid = polarPoint(200, 200, r, -90);
-          const fat = polarPoint(200, 200, r, 0);
-          const sweet = polarPoint(200, 200, r, 90);
-          const salt = polarPoint(200, 200, r, 180);
-          const fs = 19;
-          return (
-            <g aria-hidden>
-              <text x={acid.x} y={acid.y - 2} textAnchor="middle" fill="#fecaca" style={{ fontSize: fs, fontWeight: 800, letterSpacing: '0.05em' }}>
-                ACID
-              </text>
-              <text x={fat.x + 2} y={fat.y + 5} textAnchor="start" fill="#fde68a" style={{ fontSize: fs, fontWeight: 800, letterSpacing: '0.05em' }}>
-                FAT
-              </text>
-              <text x={sweet.x} y={sweet.y + 18} textAnchor="middle" fill="#bbf7d0" style={{ fontSize: fs, fontWeight: 800, letterSpacing: '0.05em' }}>
-                SWEET
-              </text>
-              <text x={salt.x - 2} y={salt.y + 5} textAnchor="end" fill="#bfdbfe" style={{ fontSize: fs, fontWeight: 800, letterSpacing: '0.05em' }}>
-                SALT
-              </text>
-            </g>
-          );
-        })()}
-
         {targetEllipse && (
           <ellipse
             clipPath={`url(#wheel-clip-${clipUid})`}
@@ -318,7 +308,8 @@ export function SauceBalanceWheelVisual({
           className="drop-shadow-lg"
         />
         <circle cx={cx} cy={cy} r={4} fill="#f97316" opacity="0.95" />
-      </svg>
+        </svg>
+      </div>
     </div>
   );
 
@@ -360,7 +351,9 @@ export function SauceBalanceWheelVisual({
           {showReferenceImage && (
             <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1 md:hidden">Reference</p>
           )}
-          {wheelSvg}
+          <div role="img" aria-label={`Flavor wheel. Acid top, sweet bottom, fat right, salt left. ${bias}`}>
+            {wheelSvg}
+          </div>
           {(texture !== undefined || targetEllipse) && (
             <div className="mt-2 pt-2 border-t border-white/10 px-1 space-y-1.5">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
