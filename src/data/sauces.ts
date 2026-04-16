@@ -141,7 +141,7 @@ export const BASE_SAUCES: Sauce[] = [
     ],
     tip: 'Equal parts butter and flour by volume (e.g. 2 tbsp each) is classic — that is roughly 1.5–1.9:1 by weight, not 1:1 by weight.',
     filterTags: ['comfort', 'holiday', 'poultry'],
-    wheelTarget: { dx: 1, dy: 0.5, rx: 0.1, ry: 0.09 },
+    wheelTarget: { dx: 2.2, dy: 0.18, rx: 0.2, ry: 0.14 },
     recipe: [
       { slotId: 'butter', label: 'Butter (2 tbsp)', amountGrams: 28, options: [{ id: 'butter', name: 'Butter', gramsPerCup: 227 }, { id: 'drippings', name: 'Pan drippings', gramsPerCup: 240 }] },
       { slotId: 'flour', label: 'Flour (2 tbsp)', amountGrams: 16, options: [{ id: 'ap-flour', name: 'All-purpose flour', gramsPerCup: 120 }, { id: 'gf-flour', name: 'Gluten-free blend', gramsPerCup: 128 }] },
@@ -462,7 +462,7 @@ export const VARIANT_SAUCES: Sauce[] = [
     ],
     tip: 'Milk proteins scorch easily — keep the finish at a gentle bubble, not a rolling boil.',
     filterTags: ['comfort', 'southern', 'breakfast'],
-    wheelTarget: { dx: 0.55, dy: -0.38, rx: 0.11, ry: 0.1 },
+    wheelTarget: { dx: 1.95, dy: -0.08, rx: 0.2, ry: 0.15 },
     recipe: [
       { slotId: 'butter', label: 'Butter or sausage fat (2 tbsp)', amountGrams: 28, options: [{ id: 'butter', name: 'Butter', gramsPerCup: 227 }, { id: 'drippings', name: 'Sausage drippings', gramsPerCup: 240 }] },
       { slotId: 'flour', label: 'Flour (2 tbsp)', amountGrams: 16, options: [{ id: 'ap-flour', name: 'All-purpose flour', gramsPerCup: 120 }, { id: 'gf-flour', name: 'Gluten-free blend', gramsPerCup: 128 }] },

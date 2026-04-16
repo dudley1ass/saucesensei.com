@@ -1,5 +1,13 @@
 /** Engineering-style balance checks (approximate buckets from ingredient amounts). */
 
+import type { Sauce } from '../data/sauces';
+import { sauces } from '../data/sauces';
+
+/** Used to pick wheel gain curves by `Sauce.family` without hard-coding IDs everywhere. */
+const SAUCE_FAMILY_BY_ID: Record<string, Sauce['family']> = Object.fromEntries(
+  sauces.map((s) => [s.id, s.family]),
+);
+
 export type WheelTag = 'salt' | 'fat' | 'acid' | 'sweet' | 'neutral';
 
 export type RecipeLineInput = {
@@ -1026,25 +1034,78 @@ export function evaluateSauceBalance(
   return { totalGrams, pct, messages };
 }
 
+type WheelGain = { kx: number; ky: number; xBias: number; yBias: number };
+
 /**
- * Map internal quadrant deltas (typically ~±0.05–0.25) to the printed diagram grid (±3 / ±4)
- * so the live dot uses the **same coordinate space** as `wheelTarget` in `sauces.ts`.
- * Pan sauces use slightly gentler vertical gain so default builds sit on the type target.
+ * Per-sauce / per-family amplification on top of **ratio axes** (fat−salt, acid−sweet).
+ * Targets are diagram-grid units (same space as `wheelTarget` in `sauces.ts`).
  */
-export function wheelPerceivedToDiagramGrid(
-  dxP: number,
-  dyP: number,
-  sauceId?: string,
+function wheelGainFor(sauceId: string, family: Sauce['family']): WheelGain {
+  if (PAN_IDS.has(sauceId)) {
+    return { kx: 4.35, ky: 4.55, xBias: 0, yBias: 0 };
+  }
+  if (sauceId === 'simple-gravy') {
+    return { kx: 6.55, ky: 3.95, xBias: 1.48, yBias: 0.06 };
+  }
+  if (sauceId === 'white-gravy') {
+    return { kx: 5.85, ky: 3.65, xBias: 1.12, yBias: -0.06 };
+  }
+  switch (family) {
+    case 'tomato':
+      return { kx: 5.15, ky: 6.45, xBias: 0.1, yBias: 0.16 };
+    case 'cream':
+      return { kx: 5.95, ky: 4.35, xBias: 0.4, yBias: 0.05 };
+    case 'cold':
+      return { kx: 5.65, ky: 6.65, xBias: 0.22, yBias: 0.32 };
+    case 'emulsion':
+      return { kx: 5.75, ky: 5.05, xBias: 0.48, yBias: -0.1 };
+    case 'reduction':
+      return { kx: 4.95, ky: 6.95, xBias: 0.16, yBias: 0.4 };
+    case 'herb':
+      return { kx: 5.65, ky: 5.05, xBias: 0.28, yBias: 0.16 };
+    case 'umami':
+      return { kx: 5.45, ky: 4.55, xBias: -1.12, yBias: 0.02 };
+    case 'cheese':
+      return { kx: 6.05, ky: 4.45, xBias: 0.42, yBias: 0.06 };
+    case 'roux':
+      return { kx: 6.2, ky: 3.95, xBias: 1.22, yBias: 0.04 };
+    default:
+      return { kx: 5.25, ky: 5.25, xBias: 0, yBias: 0 };
+  }
+}
+
+/**
+ * Flavor wheel position from **normalized perceived** masses (not raw grams):
+ * 1) ratios on (pSalt + pFat + pAcid + pSweet)
+ * 2) axisX = fatRatio − saltRatio, axisY = acidRatio − sweetRatio
+ * 3) family / sauce gains + small biases so diagram units match culinary targets
+ * 4) reduction: extra Y pull as concentration rises (complements `applyPerception`, not duplicate)
+ */
+function perceivedRatiosToDiagramWheel(
+  sauceId: string,
+  pSalt: number,
+  pFat: number,
+  pAcid: number,
+  pSweet: number,
+  concentration: number,
 ): { dx: number; dy: number } {
-  let kx = 7;
-  let ky = 9.5;
-  if (sauceId && PAN_IDS.has(sauceId)) {
-    kx = 6.35;
-    ky = 7.15;
+  const tot = pSalt + pFat + pAcid + pSweet + 1e-9;
+  const fatR = pFat / tot;
+  const saltR = pSalt / tot;
+  const acidR = pAcid / tot;
+  const sweetR = pSweet / tot;
+  const axisX = fatR - saltR;
+  const axisY = acidR - sweetR;
+  const family = SAUCE_FAMILY_BY_ID[sauceId] ?? 'pan';
+  const g = wheelGainFor(sauceId, family);
+  let dx = axisX * g.kx + g.xBias;
+  let dy = axisY * g.ky + g.yBias;
+  if (REDUCTION_IDS.has(sauceId)) {
+    dy *= Math.min(1.58, 0.78 + concentration * 0.32);
   }
   return {
-    dx: clamp(dxP * kx, -3, 3),
-    dy: clamp(dyP * ky, -4, 4),
+    dx: clamp(dx, -3, 3),
+    dy: clamp(dy, -4, 4),
   };
 }
 
@@ -1078,13 +1139,14 @@ export function computeSauceWheelPosition(
   const pctAcid = (pAcid / sumP) * 100;
   const pctSweet = (pSweet / sumP) * 100;
 
-  const sn = pSalt / sumP;
-  const fn = pFat / sumP;
-  const an = pAcid / sumP;
-  const sw = pSweet / sumP;
-  const rawDx = fn - sn;
-  const rawDy = an - sw;
-  const { dx, dy } = wheelPerceivedToDiagramGrid(rawDx, rawDy, sauceId);
+  const { dx, dy } = perceivedRatiosToDiagramWheel(
+    sauceId,
+    pSalt,
+    pFat,
+    pAcid,
+    pSweet,
+    concentration,
+  );
 
   const scores = {
     salt: scoreFromMass(pSalt, 42),
