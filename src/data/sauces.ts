@@ -462,7 +462,7 @@ export const VARIANT_SAUCES: Sauce[] = [
     ],
     tip: 'Milk proteins scorch easily — keep the finish at a gentle bubble, not a rolling boil.',
     filterTags: ['comfort', 'southern', 'breakfast'],
-    wheelTarget: { dx: 1.5, dy: -0.4, rx: 0.1, ry: 0.09 },
+    wheelTarget: { dx: 0.55, dy: -0.38, rx: 0.11, ry: 0.1 },
     recipe: [
       { slotId: 'butter', label: 'Butter or sausage fat (2 tbsp)', amountGrams: 28, options: [{ id: 'butter', name: 'Butter', gramsPerCup: 227 }, { id: 'drippings', name: 'Sausage drippings', gramsPerCup: 240 }] },
       { slotId: 'flour', label: 'Flour (2 tbsp)', amountGrams: 16, options: [{ id: 'ap-flour', name: 'All-purpose flour', gramsPerCup: 120 }, { id: 'gf-flour', name: 'Gluten-free blend', gramsPerCup: 128 }] },
@@ -470,7 +470,7 @@ export const VARIANT_SAUCES: Sauce[] = [
       {
         slotId: 'salt',
         label: 'Salt + black pepper',
-        amountGrams: 4,
+        amountGrams: 3,
         options: [
           { id: 'kosher-salt', name: 'Kosher salt', gramsPerCup: 272 },
           { id: 'fine-sea-salt', name: 'Fine sea salt', gramsPerCup: 292 },

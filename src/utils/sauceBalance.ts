@@ -63,6 +63,9 @@ const HERB_IDS = new Set(['herb-sauce', 'herb-pesto']);
 const SOY_IDS = new Set(['soy-umami', 'soy-teriyaki', 'soy-garlic']);
 const CHEESE_IDS = new Set(['cheese-sauce', 'cheese-nacho', 'cheese-mornay']);
 
+/** Milk-forward roux gravy — wheel needs lactose + milkfat, not “salt water.” */
+const DAIRY_ROUX_IDS = new Set(['white-gravy']);
+
 /** Pan, reduction slider, etc. */
 export function isReductionSauceFamily(sauceId: string): boolean {
   return REDUCTION_IDS.has(sauceId);
@@ -106,8 +109,10 @@ function lineToBuckets(sauceId: string, line: RecipeLineInput): Record<string, n
   if (sauceId === 'white-gravy') {
     if (slotId === 'butter') accumulate(b, grams, { rouxFat: 1 });
     else if (slotId === 'flour') accumulate(b, grams, { flour: 1 });
-    else if (slotId === 'milk') accumulate(b, grams, { liquidDairy: 1 });
-    else if (slotId === 'salt') accumulate(b, grams, { seasoningSalt: 1 });
+    else if (slotId === 'milk') {
+      // Whole milk: ~87% water phase, ~5% lactose (sweet), ~4% milkfat (fat), ~4% protein/other as body-ish.
+      accumulate(b, grams, { liquidDairy: 0.78, sweet: 0.12, fat: 0.06, solid: 0.04 });
+    } else if (slotId === 'salt') accumulate(b, grams, { seasoningSalt: 1 });
     return b;
   }
 
@@ -301,6 +306,11 @@ function rawFlavorMasses(sauceId: string, lines: RecipeLineInput[]): {
   let salt = 0;
   let umami = 0;
 
+  const dairySaltCoeff = DAIRY_ROUX_IDS.has(sauceId) ? 0.016 : 0.045;
+  const seasoningSaltCoeff = DAIRY_ROUX_IDS.has(sauceId) ? 30 : 42;
+  /** Stock-forward gravies: unsalted stock shouldn’t read as heavy salt on the wheel. */
+  const liquidSaltCoeff = sauceId === 'simple-gravy' ? 0.048 : 0.07;
+
   for (const line of lines) {
     const bk = lineToBuckets(sauceId, line);
     fat +=
@@ -317,10 +327,10 @@ function rawFlavorMasses(sauceId: string, lines: RecipeLineInput[]): {
     salt +=
       (bk.soy ?? 0) * 2.8 +
       (bk.reductionLiquid ?? 0) * 0.09 +
-      (bk.liquid ?? 0) * 0.07 +
-      (bk.liquidDairy ?? 0) * 0.045 +
+      (bk.liquid ?? 0) * liquidSaltCoeff +
+      (bk.liquidDairy ?? 0) * dairySaltCoeff +
       (bk.diluent ?? 0) * 0.035 +
-      (bk.seasoningSalt ?? 0) * 42;
+      (bk.seasoningSalt ?? 0) * seasoningSaltCoeff;
     umami +=
       (bk.soy ?? 0) * 2.2 +
       (bk.cheese ?? 0) * 0.28 +
@@ -330,6 +340,16 @@ function rawFlavorMasses(sauceId: string, lines: RecipeLineInput[]): {
   }
 
   const M = Object.values(buckets).reduce((a, v) => a + v, 0);
+
+  // High dairy dilutes perceived salinity vs raw NaCl grams (especially “salt to taste” on biscuits).
+  if (DAIRY_ROUX_IDS.has(sauceId) && M > 0) {
+    const dairyL = buckets.liquidDairy ?? 0;
+    const df = dairyL / M;
+    if (df > 0.45) {
+      salt *= 1 / (1 + 0.62 * df);
+    }
+  }
+
   return { salt, fat, acid, sweet, umami, M, buckets };
 }
 
@@ -426,7 +446,7 @@ function deriveNarration(
   if ((buckets.soy ?? 0) > 8) why.push('soy / tamari');
   if ((buckets.reductionLiquid ?? 0) > 40 && rem < 92) why.push('reduction');
   if ((buckets.acid ?? 0) > 12 || (buckets.emulsifier ?? 0) > 6) why.push('vinegar / citrus / mustard');
-  if ((buckets.sweet ?? 0) > 15) why.push('sugar / honey');
+  if ((buckets.sweet ?? 0) > 15) why.push('sweet layer (sugar, honey, or milk lactose)');
   if ((buckets.finishFat ?? 0) + (buckets.fat ?? 0) + (buckets.oil ?? 0) > 35) why.push('butter / oil / cream');
   if ((buckets.diluent ?? 0) + (buckets.liquid ?? 0) > 120) why.push('stock / water dilution');
   if (why.length === 0) why.push('ingredient mix');
@@ -502,10 +522,10 @@ export function evaluateSauceBalance(
   if (sauceId === 'white-gravy') {
     const butterG = lines.find((l) => l.slotId === 'butter')?.grams ?? 0;
     const flourG = lines.find((l) => l.slotId === 'flour')?.grams ?? 0;
-    const milk = buckets.liquidDairy ?? 0;
+    const milkG = lines.find((l) => l.slotId === 'milk')?.grams ?? 0;
     const flour = buckets.flour ?? 0;
-    const t = milk + (buckets.rouxFat ?? 0) + flour + (buckets.fat ?? 0);
-    const milkPct = pctOf(milk, t);
+    const t = milkG + (buckets.rouxFat ?? 0) + flour + (buckets.fat ?? 0);
+    const milkPct = pctOf(milkG, t);
     const flourPct = pctOf(flour, t);
     push('info', 'White gravy: roux + milk — dairy scorches faster than stock; keep a gentle bubble.');
     if (butterG > 0 && flourG > 0) {
@@ -521,7 +541,7 @@ export function evaluateSauceBalance(
       push('warn', `Flour is ~${flourPct.toFixed(0)}% of the build — watch for pasty mouthfeel.`);
     }
     if (milkPct < 68) {
-      push('warn', `Milk/dairy is ~${milkPct.toFixed(0)}% (guide ~72–88% for pourable cream gravy).`);
+      push('warn', `Milk is ~${milkPct.toFixed(0)}% of the build (guide ~70–80% liquid for white gravy).`);
     }
   }
 
@@ -936,7 +956,8 @@ export function computeEngineeringStructure(
     (buckets.rouxFat ?? 0) +
     (buckets.finishFat ?? 0) +
     (buckets.extraFat ?? 0) +
-    (buckets.cream ?? 0) * 0.48;
+    (buckets.cream ?? 0) * 0.48 +
+    (buckets.liquidDairy ?? 0) * 0.034;
   const acidM = (buckets.acid ?? 0) + (buckets.emulsifier ?? 0) * 0.12 + (buckets.tomato ?? 0) * 0.1;
   const sweetM = buckets.sweet ?? 0;
   const bodyM =
