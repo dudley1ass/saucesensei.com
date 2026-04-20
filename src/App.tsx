@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { getPresetIngredientCatalog } from './data/presetIngredients';
 import { buildSauceHubs, hubCardMeta, recipesInSameHub, type SauceHub } from './data/sauceHubs';
-import { RecipeItem, SAUCE_FAMILIES, Sauce, sauces } from './data/sauces';
+import { RecipeItem, SAUCE_FAMILIES, Sauce, SauceWheelTarget, sauces } from './data/sauces';
 import { formatKitchenCups, snapCupsToEighth } from './utils/kitchenVolume';
 import {
   computeEngineeringStructure,
@@ -78,6 +78,15 @@ function buildEditableRecipe(sauce: Sauce): EditableRecipeItem[] {
     amountGrams: item.amountGrams,
     selectedOptionId: item.options[0].id,
     options: item.options,
+  }));
+}
+
+/** Default build (first option per slot, book amounts) — same starting point as a freshly opened recipe. */
+function defaultRecipeLinesForWheel(sauce: Sauce): RecipeLineInput[] {
+  return sauce.recipe.map((item) => ({
+    slotId: item.slotId,
+    optionId: item.options[0].id,
+    grams: item.amountGrams,
   }));
 }
 
@@ -404,6 +413,22 @@ function SauceDetail({
     [sauce.id, balanceLines, reductionRemainingPct],
   );
 
+  const defaultRecipeLines = useMemo(() => defaultRecipeLinesForWheel(sauce), [sauce]);
+
+  const baseRecipeWheel = useMemo(
+    () =>
+      computeSauceWheelPosition(sauce.id, defaultRecipeLines, {
+        reductionRemainingPct: isReductionSauceFamily(sauce.id) ? 100 : undefined,
+      }),
+    [sauce.id, defaultRecipeLines],
+  );
+
+  /** Teal style band follows the default recipe dot; `rx`/`ry` still come from sauce data. */
+  const sauceStyleTarget: SauceWheelTarget = useMemo(
+    () => ({ ...sauce.wheelTarget, dx: baseRecipeWheel.dx, dy: baseRecipeWheel.dy }),
+    [sauce, baseRecipeWheel.dx, baseRecipeWheel.dy],
+  );
+
   const prevWheelRef = useRef<{ dx: number; dy: number } | null>(null);
   const prevDx = prevWheelRef.current?.dx;
   const prevDy = prevWheelRef.current?.dy;
@@ -570,32 +595,6 @@ function SauceDetail({
               </button>
             </div>
           </div>
-          {hubRecipes && hubRecipes.length > 1 && onSelectHubRecipe ? (
-            <div className="mt-3 pt-3 border-t border-white/15">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-200/85 mb-2 px-0.5">
-                Recipe file — pick a build
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {hubRecipes.map((r) => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    onClick={() => onSelectHubRecipe(r.id)}
-                    className={`shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold border transition-colors ${
-                      r.id === sauce.id
-                        ? 'bg-white text-rose-900 border-white shadow'
-                        : 'bg-white/10 text-white border-white/25 hover:bg-white/18'
-                    }`}
-                  >
-                    <span className="mr-1" aria-hidden>
-                      {r.emoji}
-                    </span>
-                    {r.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
         </div>
       </header>
 
@@ -626,10 +625,10 @@ function SauceDetail({
                 showReferenceImage={false}
                 dense
                 hideQuadrantStrip
-                sauceTarget={sauce.wheelTarget}
+                sauceTarget={sauceStyleTarget}
                 texture={wheel.texture}
                 title="Flavor wheel"
-                caption="Teal dashed = style target for this sauce type. Orange dot = your build. Center glow = umami; ring around dot = body/texture."
+                caption="Teal dashed = default recipe on this page (starting point). Orange dot = your build. Center glow = umami; ring around dot = body/texture."
               />
               <FlavorPerceptionPanel wheel={wheel} />
               <SauceStructurePanel sauce={sauce} structure={structure} />
@@ -702,6 +701,32 @@ function SauceDetail({
                 </button>
               </div>
             </div>
+
+            {hubRecipes && hubRecipes.length > 1 && onSelectHubRecipe ? (
+              <div className="px-3 pb-3 app-print-hide border-b border-amber-100/90">
+                <label
+                  htmlFor="hub-recipe-select"
+                  className="block text-xs font-bold text-amber-950 uppercase tracking-wide mb-1.5"
+                >
+                  Recipe build
+                </label>
+                <select
+                  id="hub-recipe-select"
+                  value={sauce.id}
+                  onChange={(e) => onSelectHubRecipe(e.target.value)}
+                  className="w-full max-w-md rounded-lg border border-amber-300 bg-white px-3 py-2.5 text-sm font-semibold text-indigo-950 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-400/80"
+                >
+                  {hubRecipes.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.emoji} {r.name} — {r.subtitle}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1.5 text-[11px] text-amber-900/75">
+                  {hubRecipes.length} builds in this family — teal band centers on each build&apos;s default recipe.
+                </p>
+              </div>
+            ) : null}
 
             {isReductionSauceFamily(sauce.id) && (
               <div className="mx-3 mb-3 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-3 app-print-hide">

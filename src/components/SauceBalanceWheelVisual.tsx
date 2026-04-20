@@ -49,7 +49,7 @@ export type SauceBalanceWheelVisualProps = {
   dense?: boolean;
   /** Hide bottom Salt/Fat/Acid/Sweet % strip when metrics live in a side panel */
   hideQuadrantStrip?: boolean;
-  /** Ideal region for this sauce *type* on the wheel (center from data; band size fixed in UI). */
+  /** Style band (center + ellipse); recipe view passes center from the default build wheel position. */
   sauceTarget?: SauceWheelTarget | null;
   /** Body read — dot ring color / weight / dash (recipe view). */
   texture?: SauceWheelTexture;

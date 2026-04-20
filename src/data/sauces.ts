@@ -1,7 +1,7 @@
 /**
- * Style target on the wheel from the product diagram (grid → UI maps in `SauceBalanceWheelVisual`).
- * `dx`: fat (+) … salt (−), about ±3 on the chart. `dy`: acid (+) … sweet (−), about ±4 on the chart.
+ * Style target band on the flavor wheel (`SauceBalanceWheelVisual`).
  * `rx` / `ry`: ellipse aspect for the dashed band (relative only).
+ * `dx` / `dy`: legacy diagram-grid hints; the recipe page centers the band on the **default recipe** wheel position instead.
  */
 export type SauceWheelTarget = {
   dx: number;
@@ -34,7 +34,7 @@ export type Sauce = {
   steps: string[];
   tip: string;
   filterTags: string[];
-  /** Typical healthy band for this sauce on the flavor wheel (not the geometric center). */
+  /** Style band shape (`rx`/`ry`); center is derived from the default recipe on the recipe page. */
   wheelTarget: SauceWheelTarget;
   recipe: RecipeItem[];
 };

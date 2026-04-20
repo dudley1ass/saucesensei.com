@@ -1038,13 +1038,13 @@ type WheelGain = { kx: number; ky: number; xBias: number; yBias: number };
 
 /**
  * Per-sauce / per-family amplification on top of **ratio axes** (fat−salt, acid−sweet).
- * Targets are diagram-grid units (same space as `wheelTarget` in `sauces.ts`).
+ * Targets are diagram-grid units (same space as the wheel UI). Recipe pages center the style band on the default build.
  */
 function wheelGainFor(sauceId: string, family: Sauce['family']): WheelGain {
   /**
    * Pan sauces: perceived fat dominates the ratio axes for typical wine/stock + butter builds,
    * so the same kx/ky as “loud” families parks the dot far right. Gains are **per variant** so
-   * default recipes sit near `wheelTarget` in `sauces.ts` (style band center is authored, not derived).
+   * default recipes land in a sensible region on the wheel (style band follows that default in the UI).
    */
   if (sauceId === 'pan-sauce') {
     return { kx: 0.83, ky: 3.55, xBias: 0, yBias: 0.03 };
@@ -1060,10 +1060,23 @@ function wheelGainFor(sauceId: string, family: Sauce['family']): WheelGain {
     return { kx: 0.83, ky: 3.55, xBias: 0, yBias: 0.03 };
   }
   if (sauceId === 'simple-gravy') {
-    return { kx: 6.55, ky: 3.95, xBias: 1.48, yBias: 0.06 };
+    /** Brown gravy: bias so stock-forward roux reads less pegged salt-left vs milk gravy on the same family curve. */
+    return { kx: 6.55, ky: 3.95, xBias: 5.22, yBias: 0.18 };
   }
   if (sauceId === 'white-gravy') {
     return { kx: 5.85, ky: 3.65, xBias: 1.12, yBias: -0.06 };
+  }
+  /** Base marinara: oil + tomato + aromatics — needs strong fat-right + acid-up bias vs generic tomato curve. */
+  if (sauceId === 'tomato-sauce') {
+    return { kx: 5.15, ky: 6.45, xBias: 3.62, yBias: 1.46 };
+  }
+  /** Oil + vinegar + mustard — high acid; soften X gain so the dot does not peg at +3. */
+  if (sauceId === 'vinaigrette') {
+    return { kx: 2.95, ky: 8.85, xBias: -0.08, yBias: 1.08 };
+  }
+  /** Oil + herbs + acid slot — fat-forward; generic herb curve pegs X at clamp. */
+  if (sauceId === 'herb-sauce') {
+    return { kx: 3.35, ky: 5.05, xBias: -0.35, yBias: 0.35 };
   }
   switch (family) {
     case 'tomato':
